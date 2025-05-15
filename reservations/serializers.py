@@ -1,6 +1,15 @@
 from rest_framework import serializers
 from .models import Court, TimeSlot, Reservation
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = 'nombre'  # Indica que usas 'nombre' como USERNAME_FIELD
+
+    def validate(self, attrs):
+        # Valida usando 'nombre' en lugar de 'username'
+        attrs[self.username_field] = attrs.get(self.username_field, "")
+        return super().validate(attrs)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -21,8 +30,8 @@ class TimeSlotSerializer(serializers.ModelSerializer):
 
 class ReservationSerializer(serializers.ModelSerializer):
     
-    timeslot = TimeSlotSerializer(read_only=True)  # ← Serializador anidado
-    user = UserSerializer(read_only=True)          # ← Serializador anidado
+    timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
+    court = serializers.PrimaryKeyRelatedField(queryset=Court.objects.all())
     
     class Meta:
         model = Reservation

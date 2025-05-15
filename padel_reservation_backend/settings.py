@@ -26,7 +26,7 @@ SECRET_KEY = "django-insecure-@699w4z7%3fd!owf2li)#ak)vt4slo11g%qy7yzlf@k7po((89
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
+AUTH_USER_MODEL = 'reservations.Usuario'  # Reemplaza 'tu_app' por el nombre real de tu aplicación
 
 # Application definition
 
@@ -145,4 +145,9 @@ REST_FRAMEWORK = {
     ),
 }
 
+SIMPLE_JWT = {
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'TOKEN_OBTAIN_SERIALIZER': 'reservations.serializers.CustomTokenObtainPairSerializer',
+}
 
