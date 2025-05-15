@@ -11,5 +11,11 @@ class TimeSlotAdmin(admin.ModelAdmin):
 
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'court', 'date', 'slot')
-    list_filter = ('court', 'date')
+    list_display = ('id', 'user', 'court', 'date', 'get_slot', 'created_at')
+    
+    def get_slot(self, obj):
+        if not obj.timeslot:
+            return "⚠️ Sin franja horaria"
+        return obj.timeslot.slot if obj.timeslot else "N/A"  # ← Maneja None
+    get_slot.short_description = 'Franja horaria'  # Nombre de la columna
+    get_slot.admin_order_field = 'timeslot__slot'  # Permite ordenar por este campo

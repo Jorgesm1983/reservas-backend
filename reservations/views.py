@@ -1,8 +1,10 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
+from rest_framework.response import Response
 from .models import Court, TimeSlot, Reservation
 from .serializers import CourtSerializer, TimeSlotSerializer, ReservationSerializer, UserSerializer
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from django.db import transaction
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -11,28 +13,80 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 class CourtViewSet(viewsets.ModelViewSet):
     queryset = Court.objects.all()
     serializer_class = CourtSerializer
-    permission_classes = [IsAdminUser]  # Solo admins pueden crear/editar
+    def get_permissions(self):
+        # Solo admins pueden crear/editar/borrar
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsAdminUser]
+        else:
+            # Cualquier autenticado puede ver
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
 
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer
-    permission_classes = [IsAdminUser]
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsAdminUser]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
 
 class ReservationViewSet(viewsets.ModelViewSet):
     queryset = Reservation.objects.all()
     serializer_class = ReservationSerializer
     permission_classes = [IsAuthenticated]
-    
+
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
-        print("📩 Datos entrantes a ReservationViewSet:", request.data)
-        return super().create(request, *args, **kwargs)
+        # Extraer datos de la reserva
+        court_id = request.data.get('court')
+        timeslot_id = request.data.get('timeslot')
+        date = request.data.get('date')
+
+        # Verificar si ya existe una reserva para esta combinación
+        if Reservation.objects.filter(
+            court=court_id,
+            timeslot=timeslot_id,
+            date=date
+        ).exists():
+            return Response(
+                {
+                    "error": "Este horario ya está reservado para la pista seleccionada",
+                    "detail": "Por favor, elige otra fecha, hora o pista"
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        try:
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def perform_create(self, serializer):
-        # print("Datos de la reserva: ", serializer.validated_data)
-        # Fuerza a que la reserva se asocie al usuario autenticado
+        # Asignación automática del usuario autenticado
         serializer.save(user=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Verificar permisos de cancelación
+        if not (request.user == instance.user or request.user.is_staff):
+            return Response(
+                {"error": "No tienes permiso para cancelar esta reserva"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        self.perform_destroy(instance)
+        return Response(
+            {"success": "Reserva cancelada correctamente"},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 class UserViewSet(viewsets.ModelViewSet):
