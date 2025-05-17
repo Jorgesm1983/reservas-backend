@@ -9,7 +9,7 @@ class Vivienda(models.Model):
         return self.nombre
 
 class UsuarioManager(BaseUserManager):
-    def create_user(self, nombre, email, password=None, apellido="", vivienda=None):
+    def create_user(self, email, nombre, password=None, apellido="", vivienda=None):
         if not email:
             raise ValueError('El usuario debe tener un email')
         user = self.model(
@@ -22,10 +22,10 @@ class UsuarioManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, nombre, email, password=None, apellido="", vivienda=None):
+    def create_superuser(self, email, nombre, password=None, apellido="", vivienda=None):
         user = self.create_user(
-            nombre=nombre,
             email=email,
+            nombre=nombre,
             password=password,
             apellido=apellido,
             vivienda=vivienda
@@ -45,8 +45,8 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
-    USERNAME_FIELD = 'nombre'  # Ahora el nombre es el campo principal
-    REQUIRED_FIELDS = ['email']  # Campos requeridos para createsuperuser
+    USERNAME_FIELD = 'email'  # Ahora el nombre es el campo principal
+    REQUIRED_FIELDS = ['nombre']  # Campos requeridos para createsuperuser
 
     objects = UsuarioManager()
 
@@ -83,7 +83,12 @@ class Reservation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('court', 'timeslot', 'date')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['court', 'timeslot', 'date'],
+                name='unique_reservation'
+            )
+        ]
 
     def __str__(self):
         return f"{self.user.nombre} - {self.court.name} - {self.date} {self.timeslot}"

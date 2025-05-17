@@ -11,9 +11,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
 from django.db import IntegrityError
-
+from .serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django_filters import rest_framework as filters
+from django.utils import timezone
+from rest_framework import serializers
+from rest_framework.permissions import AllowAny
 
 @csrf_exempt
 @require_POST
@@ -37,7 +41,13 @@ def registro_usuario(request):
     if Usuario.objects.filter(email=email).exists():
         return JsonResponse({'error': 'Email ya registrado'}, status=400)
     
-    Usuario.objects.create_user(nombre=nombre, apellido=apellido, email=email, password=password, vivienda=vivienda)
+    Usuario.objects.create_user(
+        email=email,
+        nombre=nombre,
+        apellido=apellido,
+        password=password,
+        vivienda=vivienda
+    )
     return JsonResponse({'message': 'Usuario registrado correctamente'})
 
 # Nueva vista para obtener viviendas
@@ -48,6 +58,7 @@ def obtener_viviendas(request):
 class CourtViewSet(viewsets.ModelViewSet):
     queryset = Court.objects.all()
     serializer_class = CourtSerializer
+    pagination_class = None  # ← Desactiva paginación
     def get_permissions(self):
         # Solo admins pueden crear/editar/borrar
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -59,85 +70,99 @@ class CourtViewSet(viewsets.ModelViewSet):
 
 
 class TimeSlotViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer
+    pagination_class = None  # ← Desactiva la paginación
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAdminUser]
+            permission_classes = [AllowAny]
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
 
 
+
+class ReservationFilter(filters.FilterSet):
+    date = filters.DateFromToRangeFilter(field_name='date', lookup_expr='range') 
+    timeslot = filters.NumberFilter(field_name='timeslot__id')  # ← Corregido
+    vivienda = filters.NumberFilter(field_name='user__vivienda__id')  
+    class Meta:
+        model = Reservation
+        fields = []
+
 class ReservationViewSet(viewsets.ModelViewSet):
-    queryset = Reservation.objects.all()
+    queryset = Reservation.objects.all().prefetch_related(
+        'user__vivienda',
+        'court',
+        'timeslot'
+    ).order_by('-date', 'timeslot__start_time')
     serializer_class = ReservationSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = ReservationFilter
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset  # ← No sobreescribir el queryset aquí
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         try:
-            # Extraer datos de la reserva
-            court_id = request.data.get('court')
-            timeslot_id = request.data.get('timeslot')
-            date = request.data.get('date')
-
-
-            if not all([court_id, timeslot_id, date]):
-                        return Response(
-                            {"error": "Faltan campos requeridos: court, timeslot, date"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-            # Verificar si ya existe una reserva para esta combinación
-            if Reservation.objects.filter(
-                court=court_id,
-                timeslot=timeslot_id,
-                date=date
-            ).exists():
-                return Response(
-                    {
-                        "error": "Este horario ya está reservado para la pista seleccionada",
-                        "detail": "Por favor, elige otra fecha, hora o pista"
-                    },
-                    status=status.HTTP_409_CONFLICT
-                )
-
-        
-            return super().create(request, *args, **kwargs)
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
             
-        except IntegrityError as e:
-            return Response(
-                {
-                    "error": "Conflicto de reserva",
-                    "detalle": "Esta combinación de pista, horario y fecha ya existe"
-                },
-                status=status.HTTP_409_CONFLICT
-            )
-
-
-        except Exception as e:
+            if not request.user.vivienda:
                 return Response(
-                    {"error": str(e)},
+                    {"error": "El usuario debe tener una vivienda asignada"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validar fecha
+            date = serializer.validated_data['date']
+            if date < timezone.localdate():
+                return Response(
+                    {"error": "No se permiten reservas para fechas pasadas"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Verificar duplicados usando datos validados
+            if Reservation.objects.filter(
+                court=serializer.validated_data['court'],
+                timeslot=serializer.validated_data['timeslot'],
+                date=date
+            ).exists():
+                return Response(
+                    {"error": "Este horario ya está reservado"},
+                    status=status.HTTP_409_CONFLICT
+                )
+
+                # Crear reserva
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)        
+
+        except serializers.ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {"error": "Error interno del servidor"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
     def perform_create(self, serializer):
-        # Asignación automática del usuario autenticado
         serializer.save(user=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        
-        # Verificar permisos de cancelación
-        if not (request.user == instance.user or request.user.is_staff):
+        if not request.user.is_staff:
             return Response(
-                {"error": "No tienes permiso para cancelar esta reserva"},
+                {"error": "Acceso denegado: Se requieren privilegios de administrador"},
                 status=status.HTTP_403_FORBIDDEN
             )
             
+        instance = self.get_object()
         self.perform_destroy(instance)
         return Response(
-            {"success": "Reserva cancelada correctamente"},
+            {"success": "Reserva eliminada correctamente"},
             status=status.HTTP_204_NO_CONTENT
         )
 
@@ -158,3 +183,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    
+class ViviendaViewSet(viewsets.ViewSet):
+    permission_classes = [AllowAny]
+    
+    def list(self, request):
+        viviendas = Vivienda.objects.values('id', 'nombre')
+        return Response(viviendas)
+    
