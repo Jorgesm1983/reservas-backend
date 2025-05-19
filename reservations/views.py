@@ -1,9 +1,9 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
-from .models import Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation
+from .models import Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation, InvitadoExterno
 from .serializers import (
     CourtSerializer, TimeSlotSerializer, ReservationSerializer, UserSerializer,
-    UsuarioSerializer, ReservationInvitationSerializer
+    UsuarioSerializer, ReservationInvitationSerializer, WriteReservationSerializer
 )
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
@@ -21,7 +21,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import JSONParser
 
@@ -106,41 +106,39 @@ class ReservationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         return queryset
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return WriteReservationSerializer
+        return ReservationSerializer
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            if not request.user.vivienda:
-                return Response(
-                    {"error": "El usuario debe tener una vivienda asignada"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            
+            # Obtener datos validados
+            court = serializer.validated_data['court']
+            timeslot = serializer.validated_data['timeslot']
             date = serializer.validated_data['date']
-            if date < timezone.localdate():
-                return Response(
-                    {"error": "No se permiten reservas para fechas pasadas"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+
+            # Validar reserva duplicada
             if Reservation.objects.filter(
-                court=serializer.validated_data['court'],
-                timeslot=serializer.validated_data['timeslot'],
+                court=court,
+                timeslot=timeslot,
                 date=date
             ).exists():
                 return Response(
                     {"error": "Este horario ya está reservado"},
                     status=status.HTTP_409_CONFLICT
                 )
+
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         except serializers.ValidationError as e:
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response(
-                {"error": "Error interno del servidor"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -202,7 +200,14 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 invitacion_anterior = ReservationInvitation.objects.filter(email=email).first()
                 nombre = data.get('nombre', "")
                 nombre_final = nombre or getattr(invitacion_anterior, 'nombre_invitado', "") or email.split('@')[0]
-
+                
+                # IMPORTANTE: Guardar como InvitadoExterno para persistencia
+                InvitadoExterno.objects.update_or_create(
+                    usuario=request.user,
+                    email=email,
+                    defaults={'nombre': nombre_final}
+                )
+                
                 # Crear invitación (manejar duplicados)
                 invitacion, created = ReservationInvitation.objects.get_or_create(
                     reserva=reserva,
@@ -227,18 +232,16 @@ class ReservationViewSet(viewsets.ModelViewSet):
                     {"error": "Error al procesar invitaciones"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-
         return Response(
             {"status": "Invitaciones procesadas", "invitaciones_creadas": len(invitaciones_data)},
             status=status.HTTP_201_CREATED
         )
 
-
     def _enviar_email_invitacion(self, invitacion):
         invitacion.generar_token()
         context = {
             'convocante': invitacion.reserva.user.get_full_name() or invitacion.reserva.user.email,
-            'nombre_invitado': invitacion.invitado.nombre if invitacion.invitado else invitacion.nombre_invitado or invitacion.email,
+            'nombre_invitado': invitacion.invitado.nombre if invitacion.invitado else invitacion.nombre_invitado or invitacion.email.split('@')[0],
             'reserva': invitacion.reserva,
             'pista': invitacion.reserva.court.name,
             'fecha': invitacion.reserva.date.strftime("%d/%m/%Y"),
@@ -248,6 +251,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'enlace_aceptar': f"https://tudominio.com/invitaciones/{invitacion.token}/aceptar/",
             'enlace_rechazar': f"https://tudominio.com/invitaciones/{invitacion.token}/rechazar/"
         }
+        
         mensaje = render_to_string('emails/invitacion_reserva.txt', context)
         send_mail(
             subject='Invitación a partido de pádel',
@@ -256,6 +260,17 @@ class ReservationViewSet(viewsets.ModelViewSet):
             recipient_list=[invitacion.email],
             fail_silently=False
         )
+        
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return WriteReservationSerializer
+        return ReservationSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
@@ -322,15 +337,36 @@ class ReservationInvitationViewSet(viewsets.ModelViewSet):
                 {"error": "No tienes permiso para eliminar esta invitación"},
                 status=status.HTTP_403_FORBIDDEN
             )
+        
+        # IMPORTANTE: Solo eliminamos la invitación, NO el InvitadoExterno
         invitacion.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class InvitadosFrecuentesViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     def list(self, request):
-        invitaciones = ReservationInvitation.objects.filter(
-            email__isnull=False,
-            reserva__user=request.user
-        ).exclude(nombre_invitado__exact='').values('email', 'nombre_invitado').distinct()
-        return Response(invitaciones)
+        # CAMBIADO: Ahora usa el modelo InvitadoExterno en lugar de ReservationInvitation
+        invitados = InvitadoExterno.objects.filter(
+            usuario=request.user
+        ).values('email', 'nombre').distinct()
+        
+        # Formato compatible con el anterior
+        resultado = [{'email': inv['email'], 'nombre_invitado': inv['nombre']} for inv in invitados]
+        return Response(resultado)
 
+# Nuevo endpoint para eliminar invitados externos
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def eliminar_invitado_externo(request, email):
+    try:
+        invitado = InvitadoExterno.objects.get(
+            usuario=request.user,
+            email=email
+        )
+        invitado.delete()
+        return Response(
+            {"status": "Invitado externo eliminado correctamente"}, 
+            status=status.HTTP_200_OK
+        )
+    except InvitadoExterno.DoesNotExist:
+        return Response({"error": "Invitado no encontrado"}, status=404)

@@ -82,7 +82,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 class ReservationSerializer(serializers.ModelSerializer):
     user = UsuarioSerializer(read_only=True)
     court = CourtSerializer(read_only=True)
-    timeslot = TimeSlotSerializer(read_only=True)  # Cambia aquí
+    timeslot = TimeSlotSerializer(read_only=True)
     invitaciones = ReservationInvitationSerializer(many=True, read_only=True)
     
 
@@ -102,5 +102,13 @@ class ReservationSerializer(serializers.ModelSerializer):
         if value < timezone.localdate():
             raise serializers.ValidationError("No se permiten reservas para fechas pasadas")
         return value
+    
+class WriteReservationSerializer(serializers.ModelSerializer):
+    court = serializers.PrimaryKeyRelatedField(queryset=Court.objects.all())
+    timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
+
+    class Meta:
+        model = Reservation
+        fields = ('court', 'timeslot', 'date')
     
     

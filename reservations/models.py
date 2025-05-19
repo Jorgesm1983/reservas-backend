@@ -144,3 +144,11 @@ class ReservationInvitation(models.Model):
         self.token = secrets.token_urlsafe(50)
         self.save()
         
+class InvitadoExterno(models.Model):
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='invitados_externos')
+    email = models.EmailField()
+    nombre = models.CharField(max_length=255)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('usuario', 'email')
