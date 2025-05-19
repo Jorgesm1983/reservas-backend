@@ -4,11 +4,12 @@ from django.contrib import admin
 from reservations.views import (
     CourtViewSet, TimeSlotViewSet,
     ReservationViewSet, UserViewSet,
-    CustomLoginView, registro_usuario, obtener_viviendas
+    CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet, UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+
 
 
 
@@ -20,8 +21,12 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 router = DefaultRouter()
 router.register(r'courts', CourtViewSet)
 router.register(r'timeslots', TimeSlotViewSet)
-router.register(r'reservations', ReservationViewSet)
+router.register(r'reservations', ReservationViewSet, basename='reservation')
 router.register(r'users', UserViewSet)
+router.register(r'usuarios-comunidad', UsuarioComunidadViewSet, basename='usuarios-comunidad')
+router.register(r'usuarios', UsuarioViewSet, basename='usuarios')
+router.register(r'invitaciones', ReservationInvitationViewSet, basename='invitaciones')
+router.register(r'viviendas', ViviendaViewSet, basename = 'vivienda')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,4 +36,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/registro_usuario', registro_usuario),
     path('api/obtener_viviendas', obtener_viviendas),
+    path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
+    path('api/invitaciones/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
+
 ]

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Court, TimeSlot, Reservation, Vivienda, Usuario
+from .models import Court, TimeSlot, Reservation, Vivienda, Usuario, ReservationInvitation, Community
 
 # Configuración para el modelo Usuario
 @admin.register(Usuario)
@@ -31,8 +31,8 @@ class UsuarioAdmin(UserAdmin):
 # Mantenemos tus configuraciones existentes
 @admin.register(Court)
 class CourtAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name')
-    search_fields = ('name',)
+    list_display = ('id', 'name', 'direccion', 'community')
+    search_fields = ('name', 'direccion', 'community__name')
 
 @admin.register(TimeSlot)
 class TimeSlotAdmin(admin.ModelAdmin):
@@ -52,3 +52,13 @@ class ReservationAdmin(admin.ModelAdmin):
     get_slot.admin_order_field = 'timeslot__slot'
 
 admin.site.register(Vivienda)
+
+@admin.register(ReservationInvitation)
+class ReservationInvitationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'reserva', 'invitado', 'email', 'estado', 'fecha_invitacion')
+    search_fields = ('email', 'invitado__nombre', 'reserva__user__nombre')
+    list_filter = ('estado', 'fecha_invitacion')
+
+@admin.register(Community)
+class CommunityAdmin(admin.ModelAdmin):
+    list_display = ('name',)

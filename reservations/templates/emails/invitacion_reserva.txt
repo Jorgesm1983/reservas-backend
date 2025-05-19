@@ -1,0 +1,15 @@
+Hola {{ nombre_invitado }},
+
+{{ convocante }} te invita a jugar al pádel.
+
+Detalles de la reserva:
+- Fecha: {{ fecha }}
+- Horario: {{ hora_inicio }} - {{ hora_fin }}
+- Pista: {{ pista }}
+- Dirección: {{ direccion_pista }}
+
+Confirma tu asistencia:
+✅ Aceptar: {{ enlace_aceptar }}
+❌ Rechazar: {{ enlace_rechazar }}
+
+¡Esperamos que puedas unirte!

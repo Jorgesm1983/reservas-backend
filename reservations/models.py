@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
+import secrets
+
 
 class Vivienda(models.Model):
     nombre = models.CharField(max_length=255, unique=True)
@@ -53,15 +55,37 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = _('usuario')
         verbose_name_plural = _('usuarios')
+        
+    def get_full_name(self):
+        """
+        Devuelve el nombre completo del usuario.
+        Si no tiene nombre/apellido, usa el username.
+        """
+        if self.nombre and self.apellido:
+            return f"{self.nombre} {self.apellido}"
+        else:
+            return self.email  # o self.email según prefieras
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}".strip()
 
-class Court(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+class Community(models.Model):
+    name = models.CharField("Nombre de la comunidad", max_length=100)
+    # Otros campos comunes a todas las comunidades (ej: contacto, logo, etc.)
 
     def __str__(self):
         return self.name
+
+class Court(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    direccion = models.CharField(max_length=255, blank=True, null=True)
+    community = models.ForeignKey(Community, on_delete=models.CASCADE, null = True, default= 1)  # Relación con comunidad
+    # ... otros campos (ej: tipo de superficie, capacidad)
+
+    def __str__(self):
+        return f"{self.name} - {self.community}"
+    class Meta:
+        verbose_name_plural = "Pistas"
 
 class TimeSlot(models.Model):
     slot = models.CharField(max_length=50)
@@ -83,6 +107,7 @@ class Reservation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name_plural = "Reservas"
         constraints = [
             models.UniqueConstraint(
                 fields=['court', 'timeslot', 'date'],
@@ -95,3 +120,27 @@ class Reservation(models.Model):
 
     def can_be_cancelled_by(self, user):
         return self.user == user or user.is_staff
+
+class ReservationInvitation(models.Model):
+    ESTADOS = (
+        ('pendiente', 'Pendiente'),
+        ('aceptada', 'Aceptada'),
+        ('rechazada', 'Rechazada')
+    )
+    
+    reserva = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='invitaciones')
+    invitado = models.ForeignKey(Usuario, null=True, blank=True, on_delete=models.SET_NULL)
+    email = models.EmailField()
+    token = models.CharField(max_length=100, unique=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
+    fecha_invitacion = models.DateTimeField(auto_now_add=True)
+    nombre_invitado = models.CharField("Nombre del invitado", max_length=255, blank=True, null=True)
+
+    class Meta:
+        unique_together = [['reserva', 'email']]
+        verbose_name_plural = "Invitaciones"
+
+    def generar_token(self):
+        self.token = secrets.token_urlsafe(50)
+        self.save()
+        
