@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from rest_framework import exceptions
 from django.utils import timezone
 from reservations.models import TimeSlot
+from rest_framework.validators import UniqueTogetherValidator
 
 class ReservationInvitationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -110,5 +111,11 @@ class WriteReservationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reservation
         fields = ('court', 'timeslot', 'date')
-    
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Reservation.objects.all(),
+                fields=['court', 'timeslot', 'date'],
+                message="Este horario ya está reservado"
+            )
+        ]
     

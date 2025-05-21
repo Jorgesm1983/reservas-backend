@@ -120,6 +120,11 @@ class Reservation(models.Model):
 
     def can_be_cancelled_by(self, user):
         return self.user == user or user.is_staff
+    
+    def unique_error_message(self, model_class, unique_check):
+        if model_class == type(self) and unique_check == ('court', 'timeslot', 'date'):
+            return "Este horario ya está reservado"
+        return super().unique_error_message(model_class, unique_check)
 
 class ReservationInvitation(models.Model):
     ESTADOS = (

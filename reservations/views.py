@@ -24,6 +24,7 @@ from django.template.loader import render_to_string
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.parsers import JSONParser
+from rest_framework.exceptions import ValidationError
 
 @csrf_exempt
 @require_POST
@@ -104,8 +105,10 @@ class ReservationViewSet(viewsets.ModelViewSet):
     filterset_class = ReservationFilter
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        return queryset
+        
+        return Reservation.objects.filter(user=self.request.user)\
+            .prefetch_related('user__vivienda', 'court', 'timeslot', 'invitaciones')\
+            .order_by('-date', 'timeslot__start_time')
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -134,22 +137,28 @@ class ReservationViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_409_CONFLICT
                 )
 
-            serializer.save(user=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            reserva = serializer.save(user=request.user)
+            read_serializer = ReservationSerializer(reserva, context={'request': request})
+            return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 
-        except serializers.ValidationError as e:
+        except ValidationError as e:
+            # Intercepta el error de conjunto único y tradúcelo
+            non_field = e.detail.get('non_field_errors')
+            if non_field and any("conjunto único" in str(msg) for msg in non_field):
+                return Response({"error": "Este horario ya está reservado"}, status=status.HTTP_409_CONFLICT)
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_staff:
+        instance = self.get_object()
+        # Permitir borrar si es el propietario o staff
+        if instance.user != request.user and not request.user.is_staff:
             return Response(
-                {"error": "Acceso denegado: Se requieren privilegios de administrador"},
+                {"error": "No tienes permiso para eliminar esta reserva"},
                 status=status.HTTP_403_FORBIDDEN
             )
-        instance = self.get_object()
         self.perform_destroy(instance)
         return Response(
             {"success": "Reserva eliminada correctamente"},
