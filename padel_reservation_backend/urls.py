@@ -5,7 +5,7 @@ from reservations.views import (
     CourtViewSet, TimeSlotViewSet,
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
-    UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo
+    UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
@@ -22,7 +22,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 router = DefaultRouter()
 router.register(r'courts', CourtViewSet)
 router.register(r'timeslots', TimeSlotViewSet)
-router.register(r'reservations', ReservationViewSet, basename='reservation')
+router.register(r'mis-reservas', ReservationViewSet, basename='mis-reservas')
+router.register(r'reservations', ReservationAllViewSet, basename='reservations')
 router.register(r'users', UserViewSet)
 router.register(r'usuarios-comunidad', UsuarioComunidadViewSet, basename='usuarios-comunidad')
 router.register(r'usuarios', UsuarioViewSet, basename='usuarios')

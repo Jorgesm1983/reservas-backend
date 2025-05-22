@@ -85,6 +85,7 @@ class ReservationFilter(filters.FilterSet):
     date = filters.DateFromToRangeFilter(field_name='date', lookup_expr='range')
     timeslot = filters.NumberFilter(field_name='timeslot__id')
     vivienda = filters.NumberFilter(field_name='user__vivienda__id')
+    court = filters.NumberFilter(field_name='court__id')  # <--- Añade esto
 
     class Meta:
         model = Reservation
@@ -379,3 +380,23 @@ def eliminar_invitado_externo(request, email):
         )
     except InvitadoExterno.DoesNotExist:
         return Response({"error": "Invitado no encontrado"}, status=404)
+
+class ReservationAllViewSet(viewsets.ModelViewSet):
+    queryset = Reservation.objects.all().prefetch_related(
+        'user__vivienda',
+        'court',
+        'timeslot',
+        'invitaciones'
+    ).order_by('-date', 'timeslot__start_time')
+    serializer_class = ReservationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = ReservationFilter
+    def get_serializer_class(self):
+            if self.action in ['create', 'update', 'partial_update']:
+                return WriteReservationSerializer
+            return ReservationSerializer
+        
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)    
+        # No filtramos por usuario, todos ven todas las reservas
