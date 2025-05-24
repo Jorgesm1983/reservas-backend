@@ -5,8 +5,8 @@ from reservations.views import (
     CourtViewSet, TimeSlotViewSet,
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
-    UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, CommunityViewSet
-)
+    UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, 
+    CommunityViewSet, solicitar_reset_password, confirmar_reset_password)
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -43,6 +43,8 @@ urlpatterns = [
     path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitaciones/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitados-externos/<str:email>/', eliminar_invitado_externo),
+    path('api/reset-password/', solicitar_reset_password),
+    path('api/reset-password-confirm/', confirmar_reset_password),
     
 ]
 

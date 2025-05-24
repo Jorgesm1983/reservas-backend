@@ -27,6 +27,11 @@ class UsuarioAdmin(UserAdmin):
     )
     
     readonly_fields = ('date_joined', 'last_login')  # ← Campos de solo lectura
+    
+    def save_model(self, request, obj, form, change):
+        if 'password' in form.changed_data:
+            obj.set_password(form.cleaned_data['password'])
+        super().save_model(request, obj, form, change)
 
 # Mantenemos tus configuraciones existentes
 @admin.register(Court)

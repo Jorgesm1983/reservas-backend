@@ -6,7 +6,7 @@ from .models import (
 from .serializers import (
     CourtSerializer, TimeSlotSerializer, ReservationSerializer, UserSerializer,
     UsuarioSerializer, ReservationInvitationSerializer, WriteReservationSerializer,
-    ViviendaSerializer, CustomTokenObtainPairSerializer, CommunitySerializer
+    ViviendaSerializer, CustomTokenObtainPairSerializer, CommunitySerializer, ChangePasswordSerializer
 )
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
@@ -24,6 +24,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 
 # --- Registro de usuario desde el frontend ---
 @csrf_exempt
@@ -249,6 +250,38 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+    
+    @action(detail=True, methods=['post'])
+    def cambiar_password(self, request, pk=None):
+        usuario = self.get_object()
+        serializer = ChangePasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            usuario.set_password(serializer.validated_data['new_password'])
+            usuario.save()
+            return Response({"status": "Contraseña actualizada"})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def solicitar_reset_password(request):
+    email = request.data.get('email')
+    try:
+        user = Usuario.objects.get(email=email)
+        # Generar token (usa tu lógica de tokens existente o django-rest-passwordreset)
+        # Enviar email con el token (implementa esto según tu proveedor de email)
+        return Response({"status": "Correo enviado"})
+    except Usuario.DoesNotExist:
+        return Response({"error": "Usuario no encontrado"}, status=404)
+    
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def confirmar_reset_password(request):
+    token = request.data.get('token')
+    new_password = request.data.get('new_password')
+    # Validar token y cambiar contraseña
+    # Implementa la lógica según tu sistema de tokens
+    return Response({"status": "Contraseña actualizada"})
 
 # --- CRUD de viviendas (admin y frontend) ---
 class ViviendaViewSet(viewsets.ViewSet):

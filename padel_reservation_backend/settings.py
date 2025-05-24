@@ -156,3 +156,14 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
 }
 
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.46']  # tu IP local aquí
+# O para desarrollo:
+ALLOWED_HOSTS = ['*']
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",           # React en localhost
+    "http://127.0.0.1:3000",           # React en localhost
+    "http://192.168.1.46:3000",         # React desde otra máquina, pon aquí la IP de tu PC
+    # Añade aquí cualquier otra IP/puerto desde donde accedas al frontend
+]
