@@ -51,7 +51,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     apellido = models.CharField(_('apellido'), max_length=150, blank=True)
     email = models.EmailField(_('email'), unique=True)
     vivienda = models.ForeignKey(Vivienda, on_delete=models.SET_NULL, null=True, blank=True)
-    community = models.ForeignKey(Community, on_delete=models.SET_NULL, null=True, blank=True)  # Añadido
+    # community = models.ForeignKey(Community, on_delete=models.SET_NULL, null=True, blank=True)  # Añadido
     is_staff = models.BooleanField(_('staff'), default=False)
     is_active = models.BooleanField(_('activo'), default=True)
     is_superuser = models.BooleanField(default=False)
