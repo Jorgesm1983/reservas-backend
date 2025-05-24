@@ -70,11 +70,35 @@ class ViviendaSerializer(serializers.ModelSerializer):
         model = Vivienda
         fields = ('id', 'nombre')
 
+class CommunitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Community
+        fields = ['id', 'name']
 class UsuarioSerializer(serializers.ModelSerializer):
-    vivienda = ViviendaSerializer(read_only=True)  # ← Así, devuelve objeto
+    vivienda = ViviendaSerializer(read_only=True)
+    community = CommunitySerializer(read_only=True)
+    vivienda_id = serializers.PrimaryKeyRelatedField(
+        queryset=Vivienda.objects.all(), 
+        source='vivienda', 
+        write_only=True, 
+        required=False,
+        allow_null=True
+    )
+    community_id = serializers.PrimaryKeyRelatedField(
+        queryset=Community.objects.all(),
+        source='community',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = Usuario
-        fields = ('id', 'nombre', 'apellido', 'email', 'vivienda', 'is_staff')
+        fields = (
+            'id', 'nombre', 'apellido', 'email', 
+            'is_staff', 'vivienda', 'community',
+            'vivienda_id', 'community_id'
+        )
     
     def get_vivienda(self, obj):
         return obj.vivienda.nombre if obj.vivienda else None
@@ -119,7 +143,3 @@ class WriteReservationSerializer(serializers.ModelSerializer):
             )
         ]
 
-class CommunitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Community
-        fields = ['id', 'name']

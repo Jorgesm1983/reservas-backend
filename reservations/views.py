@@ -239,7 +239,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
 # --- CRUD de usuarios (admin) ---
 class UserViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all().order_by('id')  # <--- Añade order_by aquí
-    serializer_class = UserSerializer
+    serializer_class = UsuarioSerializer  # <--- Debe ser este, no UserSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
 

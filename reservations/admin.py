@@ -5,14 +5,14 @@ from .models import Court, TimeSlot, Reservation, Vivienda, Usuario, Reservation
 # Configuración para el modelo Usuario
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
-    list_display = ('email', 'nombre', 'apellido', 'vivienda', 'is_staff')
-    list_filter = ('vivienda', 'is_staff')
+    list_display = ('email', 'nombre', 'apellido', 'vivienda', 'is_staff', 'community')
+    list_filter = ('vivienda', 'is_staff', 'community')
     search_fields = ('email', 'nombre', 'apellido')
     ordering = ('email',)
     
     fieldsets = (
         (None, {'fields': ('nombre', 'password')}),
-        ('Información personal', {'fields': ('apellido', 'vivienda', 'email')}),
+        ('Información personal', {'fields': ('apellido', 'vivienda', 'email', 'community')}),
         ('Permisos', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
@@ -22,7 +22,7 @@ class UsuarioAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'nombre', 'apellido', 'vivienda', 'password1', 'password2'),
+            'fields': ('email', 'nombre', 'apellido', 'vivienda', 'password1', 'password2', 'community'),
         }),
     )
     

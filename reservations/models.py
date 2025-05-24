@@ -37,11 +37,21 @@ class UsuarioManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
+
+class Community(models.Model):
+    id = models.BigAutoField(primary_key=True)  # <--- Asegura que es bigint(20)
+    name = models.CharField("Nombre de la comunidad", max_length=100)
+    # # Otros campos comunes a todas las comunidades (ej: contacto, logo, etc.)
+
+    def __str__(self):
+        return self.name
+    
 class Usuario(AbstractBaseUser, PermissionsMixin):
     nombre = models.CharField(_('nombre'), max_length=150, unique=True)
     apellido = models.CharField(_('apellido'), max_length=150, blank=True)
     email = models.EmailField(_('email'), unique=True)
     vivienda = models.ForeignKey(Vivienda, on_delete=models.SET_NULL, null=True, blank=True)
+    community = models.ForeignKey(Community, on_delete=models.SET_NULL, null=True, blank=True)  # Añadido
     is_staff = models.BooleanField(_('staff'), default=False)
     is_active = models.BooleanField(_('activo'), default=True)
     is_superuser = models.BooleanField(default=False)
@@ -69,12 +79,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.nombre} {self.apellido}".strip()
 
-class Community(models.Model):
-    name = models.CharField("Nombre de la comunidad", max_length=100)
-    # Otros campos comunes a todas las comunidades (ej: contacto, logo, etc.)
 
-    def __str__(self):
-        return self.name
 
 class Court(models.Model):
     name = models.CharField(max_length=100, unique=True)
