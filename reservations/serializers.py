@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Court, TimeSlot, Reservation, ReservationInvitation
-from .models import Usuario, Vivienda
+from .models import Usuario, Vivienda, Community
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from rest_framework import exceptions
@@ -118,4 +118,8 @@ class WriteReservationSerializer(serializers.ModelSerializer):
                 message="Este horario ya está reservado"
             )
         ]
-    
+
+class CommunitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Community
+        fields = ['id', 'name']

@@ -5,7 +5,7 @@ from reservations.views import (
     CourtViewSet, TimeSlotViewSet,
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
-    UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet
+    UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, CommunityViewSet
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
@@ -30,6 +30,7 @@ router.register(r'usuarios', UsuarioViewSet, basename='usuarios')
 router.register(r'invitaciones', ReservationInvitationViewSet, basename='invitaciones')
 router.register(r'viviendas', ViviendaViewSet, basename = 'vivienda')
 router.register(r'invitaciones-frecuentes', InvitadosFrecuentesViewSet, basename='invitaciones-frecuentes')
+router.register(r'comunidades', CommunityViewSet, basename='comunidades')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,5 +43,6 @@ urlpatterns = [
     path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitaciones/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitados-externos/<str:email>/', eliminar_invitado_externo),
+    
 ]
 
