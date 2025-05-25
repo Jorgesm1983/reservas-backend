@@ -10,9 +10,16 @@ from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.password_validation import validate_password
 
 class ReservationInvitationSerializer(serializers.ModelSerializer):
+    nombre_mostrar = serializers.SerializerMethodField()
     class Meta:
         model = ReservationInvitation
-        fields = ['id', 'reserva', 'invitado', 'email', 'estado', 'token', 'fecha_invitacion', 'nombre_invitado']
+        fields = ['id', 'reserva', 'invitado', 'email', 'estado', 'token', 'fecha_invitacion', 'nombre_invitado', 'nombre_mostrar']
+        
+    def get_nombre_mostrar(self, obj):
+        if obj.invitado:
+            # Si tienes método get_full_name, úsalo; si no, usa nombre o email
+            return getattr(obj.invitado, 'get_full_name', lambda: None)() or getattr(obj.invitado, 'nombre', None) or obj.invitado.email
+        return obj.nombre_invitado or obj.email
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -52,7 +59,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CourtSerializer(serializers.ModelSerializer):
     class Meta:
         model = Court
-        fields = ('id', 'name')
+        fields = ('id', 'name', 'direccion')
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:

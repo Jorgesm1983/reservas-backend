@@ -172,34 +172,55 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 usuario = Usuario.objects.filter(id=user_id).first()
                 if usuario:
                     invitaciones_data.append({"email": usuario.email})
+                    
         total_invitaciones = reserva.invitaciones.count() + len(invitaciones_data)
         if total_invitaciones > 3:
             return Response(
                 {"error": "Máximo 3 invitaciones por reserva"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+            
         for data in invitaciones_data:
             try:
                 email = data.get('email')
                 if not email:
                     continue
                 invitado_usuario = Usuario.objects.filter(email=email).first()
-                invitacion_anterior = ReservationInvitation.objects.filter(email=email).first()
+                invitacion_anterior = ReservationInvitation.objects.filter(reserva=reserva, email=email).first()
                 nombre = data.get('nombre', "")
-                nombre_final = nombre or getattr(invitacion_anterior, 'nombre_invitado', "") or email.split('@')[0]
-                InvitadoExterno.objects.update_or_create(
+                nombre_final = (
+                    nombre.strip()
+                    if nombre and nombre.strip()
+                    else (
+                        invitacion_anterior.nombre_invitado
+                        if invitacion_anterior and invitacion_anterior.nombre_invitado
+                        else email.split('@')[0]
+                    )
+                )
+
+                # Actualiza o crea InvitadoExterno SIEMPRE con el nombre recibido si no es vacío
+                invitado_ext, created_ext = InvitadoExterno.objects.update_or_create(
                     usuario=request.user,
                     email=email,
                     defaults={'nombre': nombre_final}
                 )
+                # Si ya existe y el nombre recibido es no vacío y distinto, actualiza
+                if (nombre and nombre.strip() and invitado_ext.nombre != nombre.strip()) or not invitado_ext.nombre:
+                    invitado_ext.nombre = nombre.strip() or email.split('@')[0]
+                    invitado_ext.save(update_fields=['nombre'])
+
+                # Actualiza o crea ReservationInvitation SIEMPRE con el nombre recibido si no es vacío
                 invitacion, created = ReservationInvitation.objects.get_or_create(
                     reserva=reserva,
                     email=email,
                     defaults={
                         'invitado': invitado_usuario,
-                        'nombre_invitado': nombre_final if not invitado_usuario else None
+                        'nombre_invitado': nombre_final
                     }
                 )
+                if (nombre and nombre.strip() and invitacion.nombre_invitado != nombre.strip()) or not invitacion.nombre_invitado:
+                    invitacion.nombre_invitado = nombre.strip() or email.split('@')[0]
+                    invitacion.save(update_fields=['nombre_invitado'])
                 if created:
                     self._enviar_email_invitacion(invitacion)
             except IntegrityError:

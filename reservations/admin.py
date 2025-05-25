@@ -60,9 +60,13 @@ admin.site.register(Vivienda)
 
 @admin.register(ReservationInvitation)
 class ReservationInvitationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'reserva', 'invitado', 'email', 'estado', 'fecha_invitacion')
-    search_fields = ('email', 'invitado__nombre', 'reserva__user__nombre')
+    list_display = ('id', 'reserva', 'invitado', 'email','nombre_invitado', 'estado', 'fecha_invitacion')
+    search_fields = ('email', 'invitado__nombre', 'reserva__user__nombre', 'nombre_invitado')
     list_filter = ('estado', 'fecha_invitacion')
+    fields = (
+        'reserva', 'invitado', 'email', 'nombre_invitado', 'estado', 'fecha_invitacion', 'token'
+    )
+    readonly_fields = ('fecha_invitacion', 'token')
 
 @admin.register(Community)
 class CommunityAdmin(admin.ModelAdmin):
