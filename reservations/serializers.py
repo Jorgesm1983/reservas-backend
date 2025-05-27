@@ -9,18 +9,6 @@ from reservations.models import TimeSlot
 from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.password_validation import validate_password
 
-class ReservationInvitationSerializer(serializers.ModelSerializer):
-    nombre_mostrar = serializers.SerializerMethodField()
-    class Meta:
-        model = ReservationInvitation
-        fields = ['id', 'reserva', 'invitado', 'email', 'estado', 'token', 'fecha_invitacion', 'nombre_invitado', 'nombre_mostrar']
-        
-    def get_nombre_mostrar(self, obj):
-        if obj.invitado:
-            # Si tienes método get_full_name, úsalo; si no, usa nombre o email
-            return getattr(obj.invitado, 'get_full_name', lambda: None)() or getattr(obj.invitado, 'nombre', None) or obj.invitado.email
-        return obj.nombre_invitado or obj.email
-
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'  # Indica que usas 'nombre' como USERNAME_FIELD
@@ -55,7 +43,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         })
         return data
 
-
 class CourtSerializer(serializers.ModelSerializer):
     class Meta:
         model = Court
@@ -66,12 +53,35 @@ class TimeSlotSerializer(serializers.ModelSerializer):
         model = TimeSlot
         fields = ('id', 'start_time', 'end_time', 'slot')
 
-
-
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
         fields = ('id', 'email', 'nombre', 'apellido', 'is_staff')
+
+class SimpleReservationSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    court = CourtSerializer(read_only=True)
+    timeslot = TimeSlotSerializer(read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = ('id', 'user', 'court', 'date', 'timeslot', 'created_at')
+
+class ReservationInvitationSerializer(serializers.ModelSerializer):
+    nombre_mostrar = serializers.SerializerMethodField()
+    reserva = SimpleReservationSerializer(read_only=True)
+
+    class Meta:
+        model = ReservationInvitation
+        fields = [
+            'id', 'reserva', 'invitado', 'email', 'estado', 'token',
+            'fecha_invitacion', 'nombre_invitado', 'nombre_mostrar'
+        ]
+
+    def get_nombre_mostrar(self, obj):
+        if obj.invitado:
+            return getattr(obj.invitado, 'get_full_name', lambda: None)() or getattr(obj.invitado, 'nombre', None) or obj.invitado.email
+        return obj.nombre_invitado or obj.email
         
 class ViviendaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -82,6 +92,7 @@ class CommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Community
         fields = ['id', 'name']
+
 class UsuarioSerializer(serializers.ModelSerializer):
     vivienda = ViviendaSerializer(read_only=True)
     community = CommunitySerializer(read_only=True)
@@ -111,7 +122,6 @@ class UsuarioSerializer(serializers.ModelSerializer):
     def get_vivienda(self, obj):
         return obj.vivienda.nombre if obj.vivienda else None
         
- 
 class ReservationSerializer(serializers.ModelSerializer):
     user = UsuarioSerializer(read_only=True)
     court = CourtSerializer(read_only=True)

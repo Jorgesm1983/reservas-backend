@@ -24,6 +24,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from datetime import datetime
 
 
 # --- Registro de usuario desde el frontend ---
@@ -415,3 +416,29 @@ class CommunityViewSet(viewsets.ModelViewSet):
     queryset = Community.objects.all()
     serializer_class = CommunitySerializer
     permission_classes = [permissions.IsAdminUser]  # Solo staff puede modificar
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_dashboard(request):
+    user = request.user
+
+    # Partidos jugados este mes
+    now = datetime.now()
+    partidos_jugados = Reservation.objects.filter(
+        user=user,
+        date__month=now.month,
+        date__year=now.year
+    ).count()
+
+    # Invitaciones pendientes
+    invitaciones_pendientes = ReservationInvitation.objects.filter(
+        invitado=user, estado='pendiente'
+    ).select_related('reserva__court', 'reserva__timeslot', 'reserva__user')
+    invitaciones_serializadas = ReservationInvitationSerializer(invitaciones_pendientes, many=True).data
+
+    return Response({
+        "nombre": user.nombre,
+        "partidos_jugados_mes": partidos_jugados,
+        "invitaciones_pendientes": invitaciones_serializadas,
+        "is_staff": user.is_staff,
+    })
