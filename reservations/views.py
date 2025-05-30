@@ -24,7 +24,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from datetime import datetime
+from datetime import datetime, date
 
 
 # --- Registro de usuario desde el frontend ---
@@ -442,3 +442,17 @@ def user_dashboard(request):
         "invitaciones_pendientes": invitaciones_serializadas,
         "is_staff": user.is_staff,
     })
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def proximos_partidos_invitado(request):
+    user = request.user
+    hoy = date.today()
+    invitaciones_aceptadas = ReservationInvitation.objects.filter(
+        invitado=user,
+        estado='aceptada',
+        reserva__date__gte=hoy
+    ).select_related('reserva')
+    reservas = [inv.reserva for inv in invitaciones_aceptadas]
+    data = ReservationSerializer(reservas, many=True).data
+    return Response(data)
