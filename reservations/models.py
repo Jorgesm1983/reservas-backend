@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 import secrets
 
 
@@ -104,12 +105,18 @@ class TimeSlot(models.Model):
     def __str__(self):
         return f"{self.start_time.strftime('%H:%M')}–{self.end_time.strftime('%H:%M')}"
 
-class Reservation(models.Model):
+class Reservation(models.Model):  
+    ESTADOS = (
+        ('activa', 'Activa'),
+        ('cancelada', 'Cancelada'),
+    )
+    
     user = models.ForeignKey('Usuario', on_delete=models.CASCADE, related_name='reservations')  # Corregido
     court = models.ForeignKey(Court, on_delete=models.CASCADE)
     timeslot = models.ForeignKey(TimeSlot, on_delete=models.CASCADE)
     date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='activa')  # ← NUEVO CAMPO
 
     class Meta:
         verbose_name_plural = "Reservas"
@@ -154,6 +161,12 @@ class ReservationInvitation(models.Model):
         self.token = secrets.token_urlsafe(50)
         self.save()
         
+    def save(self, *args, **kwargs):
+        if not self.token:
+            import secrets
+            self.token = secrets.token_urlsafe(50)
+        super().save(*args, **kwargs)
+        
 class InvitadoExterno(models.Model):
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='invitados_externos')
     email = models.EmailField()
@@ -162,3 +175,20 @@ class InvitadoExterno(models.Model):
 
     class Meta:
         unique_together = ('usuario', 'email')
+        
+
+
+
+class ReservationCancelada(models.Model):
+    user = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, related_name='reservas_canceladas')
+    court = models.ForeignKey('Court', on_delete=models.SET_NULL, null=True)
+    timeslot = models.ForeignKey('TimeSlot', on_delete=models.SET_NULL, null=True)
+    date = models.DateField()
+    created_at = models.DateTimeField()  # Fecha de creación de la reserva original
+    cancelada_at = models.DateTimeField(default=timezone.now)  # Fecha y hora de cancelación
+
+    def __str__(self):
+        return f"Reserva cancelada de {self.user} el {self.date} ({self.court})"
+    
+    class Meta:
+        verbose_name_plural = "Reservas Canceladas"

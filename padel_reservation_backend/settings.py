@@ -145,7 +145,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
   'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 10,
 }
 
 SIMPLE_JWT = {
@@ -164,6 +164,8 @@ ALLOWED_HOSTS = ['*']
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",           # React en localhost
     "http://127.0.0.1:3000",           # React en localhost
-    "http://192.168.1.36:3000",         # React desde otra máquina, pon aquí la IP de tu PC
+    "http://192.168.1.36:3000",
+    
+
     # Añade aquí cualquier otra IP/puerto desde donde accedas al frontend
 ]

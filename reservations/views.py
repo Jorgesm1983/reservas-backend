@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from .models import (
-    Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation, InvitadoExterno, Community
+    Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation, InvitadoExterno, Community, ReservationCancelada
 )
 from .serializers import (
     CourtSerializer, TimeSlotSerializer, ReservationSerializer, UserSerializer,
@@ -25,6 +25,7 @@ from django.template.loader import render_to_string
 import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime, date
+from django.utils import timezone
 
 
 # --- Registro de usuario desde el frontend ---
@@ -163,6 +164,8 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def invitar(self, request, pk=None):
+        print("==> Llamada a invitar")
+        print("Datos recibidos:", request.data)
         reserva = self.get_object()
         invitaciones_data = request.data.get('invitaciones', [])
         if not invitaciones_data:
@@ -182,22 +185,36 @@ class ReservationViewSet(viewsets.ModelViewSet):
             )
             
         for data in invitaciones_data:
+            print("\n=== Procesando invitación ===")
+            print("Datos recibidos:", data)
             try:
                 email = data.get('email')
+                print("Email recibido:", email)
                 if not email:
+                    print("No se encontró email, se omite esta invitación.")
                     continue
+
                 invitado_usuario = Usuario.objects.filter(email=email).first()
+                print("Usuario encontrado:", invitado_usuario)
+
                 invitacion_anterior = ReservationInvitation.objects.filter(reserva=reserva, email=email).first()
+                print("Invitación anterior:", invitacion_anterior)
+
                 nombre = data.get('nombre', "")
+                nombre_invitado = data.get('nombre_invitado', "")
+                print("Nombre recibido (nombre):", nombre)
+                print("Nombre recibido (nombre_invitado):", nombre_invitado)
+
                 nombre_final = (
-                    nombre.strip()
-                    if nombre and nombre.strip()
+                    (nombre or nombre_invitado).strip()
+                    if (nombre or nombre_invitado) and (nombre or nombre_invitado).strip()
                     else (
                         invitacion_anterior.nombre_invitado
                         if invitacion_anterior and invitacion_anterior.nombre_invitado
                         else email.split('@')[0]
                     )
                 )
+                print("Nombre final usado:", nombre_final)
 
                 # Actualiza o crea InvitadoExterno SIEMPRE con el nombre recibido si no es vacío
                 invitado_ext, created_ext = InvitadoExterno.objects.update_or_create(
@@ -205,10 +222,13 @@ class ReservationViewSet(viewsets.ModelViewSet):
                     email=email,
                     defaults={'nombre': nombre_final}
                 )
+                print("InvitadoExterno creado/actualizado:", invitado_ext, "Creado:", created_ext)
+
                 # Si ya existe y el nombre recibido es no vacío y distinto, actualiza
-                if (nombre and nombre.strip() and invitado_ext.nombre != nombre.strip()) or not invitado_ext.nombre:
-                    invitado_ext.nombre = nombre.strip() or email.split('@')[0]
+                if (nombre_final and invitado_ext.nombre != nombre_final) or not invitado_ext.nombre:
+                    invitado_ext.nombre = nombre_final or email.split('@')[0]
                     invitado_ext.save(update_fields=['nombre'])
+                    print("Nombre de InvitadoExterno actualizado a:", invitado_ext.nombre)
 
                 # Actualiza o crea ReservationInvitation SIEMPRE con el nombre recibido si no es vacío
                 invitacion, created = ReservationInvitation.objects.get_or_create(
@@ -219,23 +239,31 @@ class ReservationViewSet(viewsets.ModelViewSet):
                         'nombre_invitado': nombre_final
                     }
                 )
-                if (nombre and nombre.strip() and invitacion.nombre_invitado != nombre.strip()) or not invitacion.nombre_invitado:
-                    invitacion.nombre_invitado = nombre.strip() or email.split('@')[0]
+                print("ReservationInvitation creado/actualizado:", invitacion, "Creado:", created)
+
+                if (nombre_final and invitacion.nombre_invitado != nombre_final) or not invitacion.nombre_invitado:
+                    invitacion.nombre_invitado = nombre_final or email.split('@')[0]
                     invitacion.save(update_fields=['nombre_invitado'])
+                    print("Nombre de ReservationInvitation actualizado a:", invitacion.nombre_invitado)
+
                 if created:
+                    print("Enviando email de invitación...")
                     self._enviar_email_invitacion(invitacion)
-            except IntegrityError:
+            except IntegrityError as e:
+                print("IntegrityError:", e)
                 pass
-            except Exception:
+            except Exception as e:
+                print("Excepción inesperada:", e)
                 return Response(
-                    {"error": "Error al procesar invitaciones"},
+                    {"error": "Error al procesar invitaciones", "detalle": str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+
         return Response(
             {"status": "Invitaciones procesadas", "invitaciones_creadas": len(invitaciones_data)},
             status=status.HTTP_201_CREATED
         )
-
+        print("Invitación creada:", invitacion, "Creada:", created)
     def _enviar_email_invitacion(self, invitacion):
         invitacion.generar_token()
         context = {
@@ -411,6 +439,19 @@ class ReservationAllViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+        
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        ReservationCancelada.objects.create(
+            user=instance.user,
+            court=instance.court,
+            timeslot=instance.timeslot,
+            date=instance.date,
+            created_at=instance.created_at,
+            cancelada_at=timezone.now()
+        )
+        instance.delete()  # Elimina la reserva original
+        return Response({'status': 'cancelada'}, status=200)
 
 class CommunityViewSet(viewsets.ModelViewSet):
     queryset = Community.objects.all()

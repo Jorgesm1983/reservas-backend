@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Court, TimeSlot, Reservation, Vivienda, Usuario, ReservationInvitation, Community
+from .models import Court, TimeSlot, Reservation, Vivienda, Usuario, ReservationInvitation, Community, ReservationCancelada
 
 # Configuración para el modelo Usuario
 @admin.register(Usuario)
@@ -47,7 +47,7 @@ class TimeSlotAdmin(admin.ModelAdmin):
 
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'court', 'date', 'get_slot', 'created_at')
+    list_display = ('id', 'user', 'court', 'date', 'get_slot', 'created_at', 'estado')
     list_filter = ('date', 'court')
     raw_id_fields = ('user',)
     
@@ -71,3 +71,17 @@ class ReservationInvitationAdmin(admin.ModelAdmin):
 @admin.register(Community)
 class CommunityAdmin(admin.ModelAdmin):
     list_display = ('name',)
+    
+
+@admin.register(ReservationCancelada)
+class ReservationCanceladaAdmin(admin.ModelAdmin):
+    list_display = (
+        'user', 
+        'court', 
+        'date', 
+        'timeslot', 
+        'created_at', 
+        'cancelada_at'
+    )
+    list_filter = ('user', 'court', 'date', 'cancelada_at')
+    search_fields = ('user__nombre', 'user__email', 'court__name')

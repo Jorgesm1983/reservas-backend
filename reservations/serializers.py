@@ -127,13 +127,14 @@ class ReservationSerializer(serializers.ModelSerializer):
     court = CourtSerializer(read_only=True)
     timeslot = TimeSlotSerializer(read_only=True)
     invitaciones = ReservationInvitationSerializer(many=True, read_only=True)
+    estado = serializers.CharField()  # ← Añade este campo
     
 
     vivienda = serializers.SerializerMethodField()  # ← Nuevo campo
 
     class Meta:
         model = Reservation
-        fields = ('id', 'user', 'court', 'date', 'timeslot', 'created_at', 'vivienda', 'invitaciones')
+        fields = ('id', 'user', 'court', 'date', 'timeslot', 'created_at', 'vivienda', 'invitaciones', 'estado')
         read_only_fields = ['created_at', 'user']       
         
     def get_vivienda(self, obj):
