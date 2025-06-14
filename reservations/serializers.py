@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Court, TimeSlot, Reservation, ReservationInvitation
-from .models import Usuario, Vivienda, Community
+from .models import Usuario, Vivienda, Community, InvitadoExterno
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from rest_framework import exceptions
@@ -169,3 +169,8 @@ class ChangePasswordSerializer(serializers.Serializer):
         instance.set_password(validated_data['new_password'])
         instance.save()
         return instance
+    
+class InvitadoExternoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvitadoExterno
+        fields = ['email', 'nombre']

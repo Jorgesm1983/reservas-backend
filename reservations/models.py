@@ -156,6 +156,7 @@ class ReservationInvitation(models.Model):
     class Meta:
         unique_together = [['reserva', 'email']]
         verbose_name_plural = "Invitaciones"
+        ordering = ['-fecha_invitacion', '-id']  # <-- añade esto
 
     def generar_token(self):
         self.token = secrets.token_urlsafe(50)

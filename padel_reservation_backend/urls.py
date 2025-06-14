@@ -6,7 +6,7 @@ from reservations.views import (
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
     UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, 
-    CommunityViewSet, solicitar_reset_password, confirmar_reset_password, user_dashboard, proximos_partidos_invitado)
+    CommunityViewSet, solicitar_reset_password, confirmar_reset_password, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet)
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -31,6 +31,7 @@ router.register(r'invitaciones', ReservationInvitationViewSet, basename='invitac
 router.register(r'viviendas', ViviendaViewSet, basename = 'vivienda')
 router.register(r'invitaciones-frecuentes', InvitadosFrecuentesViewSet, basename='invitaciones-frecuentes')
 router.register(r'comunidades', CommunityViewSet, basename='comunidades')
+router.register(r'invitados-externos', InvitadoExternoViewSet, basename='invitadoexterno')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -48,5 +49,7 @@ urlpatterns = [
     path('api/dashboard/', user_dashboard, name='user-dashboard'), 
     path('api/confirmar_invitacion/<str:token>/', confirmar_invitacion, name='confirmar_invitacion'),  
     path('api/proximos_partidos_invitado/', proximos_partidos_invitado, name='proximos_partidos_invitado'),
+    path('api/invitaciones/<str:token>/aceptar/', AceptarInvitacionView.as_view(), name='aceptar-invitacion'),
+    path('api/invitaciones/<str:token>/rechazar/', RechazarInvitacionView.as_view(), name='rechazar-invitacion'),
 ]
 

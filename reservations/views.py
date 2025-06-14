@@ -1,3 +1,4 @@
+from rest_framework.views import APIView
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from .models import (
@@ -6,7 +7,7 @@ from .models import (
 from .serializers import (
     CourtSerializer, TimeSlotSerializer, ReservationSerializer, UserSerializer,
     UsuarioSerializer, ReservationInvitationSerializer, WriteReservationSerializer,
-    ViviendaSerializer, CustomTokenObtainPairSerializer, CommunitySerializer, ChangePasswordSerializer
+    ViviendaSerializer, CustomTokenObtainPairSerializer, CommunitySerializer, ChangePasswordSerializer, InvitadoExternoSerializer
 )
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
@@ -177,13 +178,15 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 if usuario:
                     invitaciones_data.append({"email": usuario.email})
                     
-        total_invitaciones = reserva.invitaciones.count() + len(invitaciones_data)
+        # Filtra solo las invitaciones activas (pendiente o aceptada)
+        invitaciones_activas = reserva.invitaciones.filter(estado__in=["pendiente", "aceptada"]).count()
+        total_invitaciones = invitaciones_activas + len(invitaciones_data)
         if total_invitaciones > 3:
             return Response(
                 {"error": "Máximo 3 invitaciones por reserva"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+                    
         for data in invitaciones_data:
             print("\n=== Procesando invitación ===")
             print("Datos recibidos:", data)
@@ -343,15 +346,18 @@ class ViviendaViewSet(viewsets.ViewSet):
 
 # --- CRUD de invitaciones ---
 class ReservationInvitationViewSet(viewsets.ModelViewSet):
-    queryset = ReservationInvitation.objects.all()
+    queryset = ReservationInvitation.objects.all().order_by('-fecha_invitacion', '-id')
     serializer_class = ReservationInvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+
     def get_queryset(self):
         user = self.request.user
+
         if user.is_staff:
             return ReservationInvitation.objects.all()
         return ReservationInvitation.objects.filter(reserva__user=user)
+    
 
     def destroy(self, request, *args, **kwargs):
         invitacion = self.get_object()
@@ -497,3 +503,38 @@ def proximos_partidos_invitado(request):
     reservas = [inv.reserva for inv in invitaciones_aceptadas]
     data = ReservationSerializer(reservas, many=True).data
     return Response(data)
+
+class AceptarInvitacionView(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request, token):
+        try:
+            invitacion = ReservationInvitation.objects.get(token=token)
+            if invitacion.estado == "aceptada":
+                return Response({"detail": "La invitación ya fue aceptada."}, status=200)
+            invitacion.estado = "aceptada"
+            invitacion.save()
+            return Response({"detail": "Invitación aceptada correctamente."}, status=200)
+        except ReservationInvitation.DoesNotExist:
+            return Response({"detail": "Invitación no encontrada."}, status=404)
+        
+class RechazarInvitacionView(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request, token):
+        try:
+            invitacion = ReservationInvitation.objects.get(token=token)
+            if invitacion.estado == "rechazada":
+                return Response({"detail": "La invitación ya fue rechazada."}, status=200)
+            invitacion.estado = "rechazada"
+            invitacion.save()
+            return Response({"detail": "Invitación rechazada correctamente."}, status=200)
+        except ReservationInvitation.DoesNotExist:
+            return Response({"detail": "Invitación no encontrada."}, status=404)
+        
+class InvitadoExternoViewSet(viewsets.ModelViewSet):
+    serializer_class = InvitadoExternoSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'email'
+    lookup_value_regex = '[^/]+'  # Permite emails con puntos, ñ, etc.
+
+    def get_queryset(self):
+        return InvitadoExterno.objects.filter(usuario=self.request.user)
