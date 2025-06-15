@@ -6,7 +6,7 @@ from reservations.views import (
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
     UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, 
-    CommunityViewSet, solicitar_reset_password, confirmar_reset_password, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet)
+    CommunityViewSet, solicitar_reset_password, confirmar_reset_password, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet, get_ocupados)
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -51,5 +51,6 @@ urlpatterns = [
     path('api/proximos_partidos_invitado/', proximos_partidos_invitado, name='proximos_partidos_invitado'),
     path('api/invitaciones/<str:token>/aceptar/', AceptarInvitacionView.as_view(), name='aceptar-invitacion'),
     path('api/invitaciones/<str:token>/rechazar/', RechazarInvitacionView.as_view(), name='rechazar-invitacion'),
+    path('api/horarios-ocupados/', get_ocupados, name='horarios-ocupados'),
 ]
 

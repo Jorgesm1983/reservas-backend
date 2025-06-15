@@ -43,15 +43,31 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         })
         return data
 
+class CommunitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Community
+        fields = ['id', 'name','direccion']
 class CourtSerializer(serializers.ModelSerializer):
+    
+    comunidad_nombre = serializers.CharField(source='community.name', read_only=True)
+    comunidad_direccion = serializers.CharField(source='community.direccion', read_only=True)
+    community_id = serializers.PrimaryKeyRelatedField(
+        queryset=Community.objects.all(),
+        source='community',
+        write_only=True,
+        required=True
+    )
+    
     class Meta:
         model = Court
-        fields = ('id', 'name', 'direccion')
+        fields = ['id', 'name', 'community', 'comunidad_nombre', 'comunidad_direccion', 'community_id']
 
 class TimeSlotSerializer(serializers.ModelSerializer):
+    community = CommunitySerializer(read_only=True)
+    community_id = serializers.PrimaryKeyRelatedField(queryset=Community.objects.all(), source='community', write_only=True)
     class Meta:
         model = TimeSlot
-        fields = ('id', 'start_time', 'end_time', 'slot')
+        fields = ['id', 'slot', 'start_time', 'end_time', 'community', 'community_id']
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -84,14 +100,17 @@ class ReservationInvitationSerializer(serializers.ModelSerializer):
         return obj.nombre_invitado or obj.email
         
 class ViviendaSerializer(serializers.ModelSerializer):
+    community = CommunitySerializer(read_only=True)
+    community_id = serializers.PrimaryKeyRelatedField(
+        queryset=Community.objects.all(),
+        source='community',
+        write_only=True,
+        required=True
+    )
+
     class Meta:
         model = Vivienda
-        fields = ('id', 'nombre')
-
-class CommunitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Community
-        fields = ['id', 'name']
+        fields = ['id', 'nombre', 'community', 'community_id']
 
 class UsuarioSerializer(serializers.ModelSerializer):
     vivienda = ViviendaSerializer(read_only=True)
@@ -150,6 +169,7 @@ class ReservationSerializer(serializers.ModelSerializer):
 class WriteReservationSerializer(serializers.ModelSerializer):
     court = serializers.PrimaryKeyRelatedField(queryset=Court.objects.all())
     timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
+    
 
     class Meta:
         model = Reservation

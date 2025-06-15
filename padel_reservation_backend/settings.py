@@ -169,3 +169,30 @@ CORS_ALLOWED_ORIGINS = [
 
     # Añade aquí cualquier otra IP/puerto desde donde accedas al frontend
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Puedes añadir tu app aquí si quieres logs más detallados
+        'reservas': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

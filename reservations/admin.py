@@ -41,8 +41,10 @@ class CourtAdmin(admin.ModelAdmin):
 
 @admin.register(TimeSlot)
 class TimeSlotAdmin(admin.ModelAdmin):
-    list_display = ('id', 'start_time', 'end_time', 'slot')
-    list_editable = ('slot',)
+    list_display = ('slot', 'start_time', 'end_time', 'community')
+    list_filter = ('community',)
+    search_fields = ('slot',)
+
     ordering = ('start_time',)
 
 @admin.register(Reservation)
@@ -56,7 +58,13 @@ class ReservationAdmin(admin.ModelAdmin):
     get_slot.short_description = 'Franja horaria'
     get_slot.admin_order_field = 'timeslot__slot'
 
-admin.site.register(Vivienda)
+# admin.site.register(Vivienda)
+@admin.register(Vivienda)
+class ViviendaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre', 'community')
+    list_filter = ('community',)
+    search_fields = ('nombre',)
+
 
 @admin.register(ReservationInvitation)
 class ReservationInvitationAdmin(admin.ModelAdmin):

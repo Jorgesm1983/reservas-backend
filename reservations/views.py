@@ -28,6 +28,9 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime, date
 from django.utils import timezone
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 # --- Registro de usuario desde el frontend ---
 @csrf_exempt
@@ -73,6 +76,17 @@ class CourtViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        user = self.request.user
+        community_id = self.request.query_params.get('community')
+        if user.is_staff and community_id:
+            return Court.objects.filter(community_id=community_id)
+        elif user.is_staff:
+            return Court.objects.all()
+        elif hasattr(user, 'community_id') and user.community_id:
+            return Court.objects.filter(community_id=user.community_id)
+        return Court.objects.none()
 
 # --- CRUD de turnos ---
 class TimeSlotViewSet(viewsets.ModelViewSet):
@@ -87,6 +101,18 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        user = self.request.user
+        community_id = self.request.query_params.get('community', None)
+        
+        user = self.request.user
+        community_id = self.request.query_params.get('community', None)
+        if user.is_staff and community_id:
+            return TimeSlot.objects.filter(community_id=community_id)
+        elif user.community:
+            return TimeSlot.objects.filter(community=user.community)
+        return TimeSlot.objects.none()
 
 # --- Filtro para reservas ---
 class ReservationFilter(filters.FilterSet):
@@ -98,6 +124,7 @@ class ReservationFilter(filters.FilterSet):
     class Meta:
         model = Reservation
         fields = []
+
 
 # --- CRUD de reservas (solo del usuario autenticado) ---
 class ReservationViewSet(viewsets.ModelViewSet):
@@ -277,7 +304,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'fecha': invitacion.reserva.date.strftime("%d/%m/%Y"),
             'hora_inicio': invitacion.reserva.timeslot.start_time,
             'hora_fin': invitacion.reserva.timeslot.end_time,
-            'direccion_pista': invitacion.reserva.court.direccion if hasattr(invitacion.reserva.court, 'direccion') else "Consultar en recepción",
+            'direccion_pista': invitacion.reserva.court.community.direccion if hasattr(invitacion.reserva.court, 'direccion') else "Consultar en recepción",
             'enlace_aceptar': f"https://tudominio.com/invitaciones/{invitacion.token}/aceptar/",
             'enlace_rechazar': f"https://tudominio.com/invitaciones/{invitacion.token}/rechazar/"
         }
@@ -296,6 +323,17 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer  # <--- Debe ser este, no UserSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+    
+    def get_queryset(self):
+        user = self.request.user
+        community_id = self.request.query_params.get('community')
+        if user.is_staff and community_id:
+            return Usuario.objects.filter(community_id=community_id)
+        elif user.is_staff:
+            return Usuario.objects.all()
+        elif hasattr(user, 'community_id') and user.community_id:
+            return Usuario.objects.filter(community_id=user.community_id)
+        return Usuario.objects.none()
 
 # --- CRUD de usuarios (frontend) ---
 class UsuarioViewSet(viewsets.ModelViewSet):
@@ -303,7 +341,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
-    
+      
     @action(detail=True, methods=['post'])
     def cambiar_password(self, request, pk=None):
         usuario = self.get_object()
@@ -337,12 +375,21 @@ def confirmar_reset_password(request):
     return Response({"status": "Contraseña actualizada"})
 
 # --- CRUD de viviendas (admin y frontend) ---
-class ViviendaViewSet(viewsets.ViewSet):
+class ViviendaViewSet(viewsets.ModelViewSet):
+    queryset = Vivienda.objects.all()
+    serializer_class = ViviendaSerializer
     permission_classes = [AllowAny]
-
-    def list(self, request):
-        viviendas = Vivienda.objects.values('id', 'nombre')
-        return Response(viviendas)
+   
+    def get_queryset(self):
+        user = self.request.user
+        community_id = self.request.query_params.get('community')
+        if user.is_staff and community_id:
+            return Vivienda.objects.filter(community_id=community_id)
+        elif user.is_staff:
+            return Vivienda.objects.all()
+        elif hasattr(user, 'community_id') and user.community_id:
+            return Vivienda.objects.filter(community_id=user.community_id)
+        return Vivienda.objects.none()
 
 # --- CRUD de invitaciones ---
 class ReservationInvitationViewSet(viewsets.ModelViewSet):
@@ -353,10 +400,15 @@ class ReservationInvitationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-
-        if user.is_staff:
-            return ReservationInvitation.objects.all()
-        return ReservationInvitation.objects.filter(reserva__user=user)
+        community_id = self.request.query_params.get('community')
+        qs = ReservationInvitation.objects.select_related('reserva__court')
+        if user.is_staff and community_id:
+            return qs.filter(reserva__court__community_id=community_id)
+        elif user.is_staff:
+            return qs
+        elif hasattr(user, 'community_id') and user.community_id:
+            return qs.filter(reserva__court__community_id=user.community_id)
+        return qs.none()
     
 
     def destroy(self, request, *args, **kwargs):
@@ -428,7 +480,10 @@ def confirmar_invitacion(request, token):
     except ReservationInvitation.DoesNotExist:
         return Response({"error": "Invitación no válida"}, status=404)
 
-# --- CRUD de todas las reservas (admin) ---
+
+
+
+
 class ReservationAllViewSet(viewsets.ModelViewSet):
     queryset = Reservation.objects.all().prefetch_related(
         'user__vivienda', 'court', 'timeslot', 'invitaciones'
@@ -437,6 +492,22 @@ class ReservationAllViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = ReservationFilter
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    def get_queryset(self):
+        user = self.request.user
+        community_id = self.request.query_params.get('community')
+        qs = Reservation.objects.select_related('user', 'court__community', 'timeslot').prefetch_related('invitaciones')
+        if user.is_staff and community_id:
+            return qs.filter(court__community_id=community_id)
+        elif user.is_staff:
+            return qs
+        elif hasattr(user, 'community_id') and user.community_id:
+            return qs.filter(court__community_id=user.community_id)
+        return qs.none()
+
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -535,6 +606,30 @@ class InvitadoExternoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     lookup_field = 'email'
     lookup_value_regex = '[^/]+'  # Permite emails con puntos, ñ, etc.
-
     def get_queryset(self):
-        return InvitadoExterno.objects.filter(usuario=self.request.user)
+        user = self.request.user
+        community_id = self.request.query_params.get('community')
+        qs = InvitadoExterno.objects.all()
+        if user.is_staff and community_id:
+            # Staff puede filtrar por comunidad seleccionada
+            return qs.filter(usuario__community_id=community_id)
+        elif user.is_staff:
+            # Staff sin filtro: ve todos
+            return qs
+        elif hasattr(user, 'community_id') and user.community_id:
+            # Usuario normal: solo su comunidad
+            return qs.filter(usuario__community_id=user.community_id)
+        return qs.none()
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_ocupados(request):
+    court_id = request.GET.get('court')
+    date = request.GET.get('date_after')
+    if not court_id or not date:
+        return Response({"error": "Parámetros 'court' y 'date_after' requeridos."}, status=400)
+    ocupados = Reservation.objects.filter(
+        court_id=court_id,
+        date=date
+    ).values_list('timeslot_id', flat=True)
+    return Response(list(ocupados))

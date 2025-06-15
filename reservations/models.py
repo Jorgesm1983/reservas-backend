@@ -5,8 +5,18 @@ from django.utils import timezone
 import secrets
 
 
+class Community(models.Model):
+    id = models.BigAutoField(primary_key=True)  # <--- Asegura que es bigint(20)
+    name = models.CharField("Nombre de la comunidad", max_length=100)
+    direccion = models.CharField("Dirección", max_length=255, blank=True, null=True)  # <-- Añade esto
+    # # Otros campos comunes a todas las comunidades (ej: contacto, logo, etc.)
+
+    def __str__(self):
+        return self.name
+    
 class Vivienda(models.Model):
     nombre = models.CharField(max_length=255, unique=True)
+    community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='viviendas', null=True, blank=True)
 
     def __str__(self):
         return self.nombre
@@ -39,14 +49,7 @@ class UsuarioManager(BaseUserManager):
         return user
 
 
-class Community(models.Model):
-    id = models.BigAutoField(primary_key=True)  # <--- Asegura que es bigint(20)
-    name = models.CharField("Nombre de la comunidad", max_length=100)
-    # # Otros campos comunes a todas las comunidades (ej: contacto, logo, etc.)
 
-    def __str__(self):
-        return self.name
-    
 class Usuario(AbstractBaseUser, PermissionsMixin):
     nombre = models.CharField(_('nombre'), max_length=150, unique=True)
     apellido = models.CharField(_('apellido'), max_length=150, blank=True)
@@ -94,16 +97,17 @@ class Court(models.Model):
         verbose_name_plural = "Pistas"
 
 class TimeSlot(models.Model):
+    community = models.ForeignKey('Community', on_delete=models.CASCADE, related_name='timeslots', null = True, blank = True)
     slot = models.CharField(max_length=50)
     start_time = models.TimeField()
     end_time = models.TimeField()
 
     class Meta:
-        unique_together = ('start_time', 'end_time')
+        unique_together = ('community', 'start_time', 'end_time')
         ordering = ['start_time']
 
     def __str__(self):
-        return f"{self.start_time.strftime('%H:%M')}–{self.end_time.strftime('%H:%M')}"
+        return f"{self.community.name} - {self.start_time.strftime('%H:%M')}–{self.end_time.strftime('%H:%M')}"
 
 class Reservation(models.Model):  
     ESTADOS = (
@@ -122,8 +126,8 @@ class Reservation(models.Model):
         verbose_name_plural = "Reservas"
         constraints = [
             models.UniqueConstraint(
-                fields=['court', 'timeslot', 'date'],
-                name='unique_reservation'
+                fields=['court', 'date', 'timeslot'],
+                name='unique_reservation_per_court_timeslot_date'
             )
         ]
 
