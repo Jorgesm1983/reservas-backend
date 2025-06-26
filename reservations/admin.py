@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Court, TimeSlot, Reservation, Vivienda, Usuario, ReservationInvitation, Community, ReservationCancelada
+from .models import Court, TimeSlot, Reservation, Vivienda, Usuario, ReservationInvitation, Community, ReservationCancelada, InvitadoExterno
 
 # Configuración para el modelo Usuario
 @admin.register(Usuario)
@@ -93,3 +93,9 @@ class ReservationCanceladaAdmin(admin.ModelAdmin):
     )
     list_filter = ('user', 'court', 'date', 'cancelada_at')
     search_fields = ('user__nombre', 'user__email', 'court__name')
+    
+@admin.register(InvitadoExterno)
+class InvitadoExternoAdmin(admin.ModelAdmin):
+    list_display = ('email', 'nombre', 'usuario', 'creado_en')
+    search_fields = ('email', 'nombre', 'usuario__email')
+    list_filter = ('usuario__community',)

@@ -47,6 +47,7 @@ class CommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Community
         fields = ['id', 'name','direccion']
+        
 class CourtSerializer(serializers.ModelSerializer):
     
     comunidad_nombre = serializers.CharField(source='community.name', read_only=True)
@@ -64,10 +65,10 @@ class CourtSerializer(serializers.ModelSerializer):
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     community = CommunitySerializer(read_only=True)
-    community_id = serializers.PrimaryKeyRelatedField(queryset=Community.objects.all(), source='community', write_only=True)
+    communityid = serializers.PrimaryKeyRelatedField(queryset=Community.objects.all(), source='community', write_only=True)
     class Meta:
         model = TimeSlot
-        fields = ['id', 'slot', 'start_time', 'end_time', 'community', 'community_id']
+        fields = ['id', 'slot', 'start_time', 'end_time', 'community', 'communityid']
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -169,11 +170,12 @@ class ReservationSerializer(serializers.ModelSerializer):
 class WriteReservationSerializer(serializers.ModelSerializer):
     court = serializers.PrimaryKeyRelatedField(queryset=Court.objects.all())
     timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
+    user = serializers.PrimaryKeyRelatedField(queryset=Usuario.objects.all(), required=False)
     
 
     class Meta:
         model = Reservation
-        fields = ('court', 'timeslot', 'date')
+        fields = ('user', 'court', 'timeslot', 'date')
         validators = [
             UniqueTogetherValidator(
                 queryset=Reservation.objects.all(),
@@ -191,6 +193,11 @@ class ChangePasswordSerializer(serializers.Serializer):
         return instance
     
 class InvitadoExternoSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+    usuario_id = serializers.IntegerField(source='usuario.id', read_only=True)
+    usuario_nombre = serializers.CharField(source='usuario.nombre', read_only=True)
+    usuario_email = serializers.CharField(source='usuario.email', read_only=True)
+
     class Meta:
         model = InvitadoExterno
-        fields = ['email', 'nombre']
+        fields = ['id', 'email', 'nombre','usuario_id', 'usuario_nombre', 'usuario_email']

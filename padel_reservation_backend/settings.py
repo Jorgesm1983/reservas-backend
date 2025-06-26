@@ -73,7 +73,18 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "padel_reservation_backend.wsgi.application"
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.ionos.es'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+EMAIL_HOST_USER = 'info@pistareserva.com' 
+DEFAULT_FROM_EMAIL = 'info@pistareserva.com'
+EMAIL_HOST_PASSWORD = 'Lucia.Sofia.2709'
+
+
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

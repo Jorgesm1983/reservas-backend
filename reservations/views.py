@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
+from django.db.models import OuterRef, Exists
 from .models import (
     Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation, InvitadoExterno, Community, ReservationCancelada
 )
@@ -110,6 +111,8 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
         community_id = self.request.query_params.get('community', None)
         if user.is_staff and community_id:
             return TimeSlot.objects.filter(community_id=community_id)
+        elif user.is_staff:
+            return TimeSlot.objects.all()
         elif user.community:
             return TimeSlot.objects.filter(community=user.community)
         return TimeSlot.objects.none()
@@ -312,7 +315,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
         send_mail(
             subject='Invitación a partido de pádel',
             message=mensaje,
-            from_email='notificaciones@tudominio.com',
+            from_email=None,
             recipient_list=[invitacion.email],
             fail_silently=False
         )
@@ -379,7 +382,8 @@ class ViviendaViewSet(viewsets.ModelViewSet):
     queryset = Vivienda.objects.all()
     serializer_class = ViviendaSerializer
     permission_classes = [AllowAny]
-   
+    pagination_class = None
+       
     def get_queryset(self):
         user = self.request.user
         community_id = self.request.query_params.get('community')
@@ -446,6 +450,7 @@ def eliminar_invitado_externo(request, email):
         )
     except InvitadoExterno.DoesNotExist:
         return Response({"error": "Invitado no encontrado"}, status=404)
+
 
 # --- Listado de usuarios de la comunidad (para invitaciones) ---
 class UsuarioComunidadViewSet(viewsets.ReadOnlyModelViewSet):
@@ -515,7 +520,18 @@ class ReservationAllViewSet(viewsets.ModelViewSet):
         return ReservationSerializer
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        self._assign_user(serializer)
+        
+    def perform_update(self, serializer):
+        self._assign_user(serializer)
+        
+    def _assign_user(self, serializer):
+        """Asigna usuario según permisos"""
+        user = self.request.user
+        if user.is_staff and 'user' in self.request.data:
+            serializer.save(user_id=self.request.data['user'])
+        else:
+            serializer.save(user=user)      
         
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -606,20 +622,33 @@ class InvitadoExternoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     lookup_field = 'email'
     lookup_value_regex = '[^/]+'  # Permite emails con puntos, ñ, etc.
+    pagination_class = None
+    
     def get_queryset(self):
         user = self.request.user
         community_id = self.request.query_params.get('community')
         qs = InvitadoExterno.objects.all()
-        if user.is_staff and community_id:
-            # Staff puede filtrar por comunidad seleccionada
-            return qs.filter(usuario__community_id=community_id)
-        elif user.is_staff:
-            # Staff sin filtro: ve todos
-            return qs
+        from .models import Usuario
+
+        if user.is_staff:
+            if community_id:
+                # Invitados externos de esa comunidad cuyo email NO está en usuarios de esa comunidad
+                user_qs = Usuario.objects.filter(email=OuterRef('email'), community_id=community_id)
+                return qs.filter(usuario__community_id=community_id)\
+                         .annotate(es_usuario=Exists(user_qs))\
+                         .filter(es_usuario=False)
+            else:
+                # Invitados externos de cualquier comunidad cuyo email NO está en usuarios de ninguna comunidad
+                user_qs = Usuario.objects.filter(email=OuterRef('email'))
+                return qs.annotate(es_usuario=Exists(user_qs)).filter(es_usuario=False)
         elif hasattr(user, 'community_id') and user.community_id:
-            # Usuario normal: solo su comunidad
-            return qs.filter(usuario__community_id=user.community_id)
-        return qs.none()
+            # Invitados externos de la comunidad del usuario cuyo email NO está en usuarios de esa comunidad
+            user_qs = Usuario.objects.filter(email=OuterRef('email'), community_id=user.community_id)
+            return qs.filter(usuario__community_id=user.community_id)\
+                     .annotate(es_usuario=Exists(user_qs))\
+                     .filter(es_usuario=False)
+        else:
+            return qs.none()
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
