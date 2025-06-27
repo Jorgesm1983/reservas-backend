@@ -29,8 +29,11 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime, date
 from django.utils import timezone
 
-import logging
-logger = logging.getLogger(__name__)
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+
+# import logging
+# logger = logging.getLogger(__name__)
 
 
 # --- Registro de usuario desde el frontend ---
@@ -45,19 +48,26 @@ def registro_usuario(request):
     vivienda_id = data.get('vivienda_id')
     if not all([nombre, apellido, email, password, vivienda_id]):
         return JsonResponse({'error': 'Faltan datos'}, status=400)
+    # Validación de formato de email
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({'error': 'Formato de email no válido'}, status=400)
     try:
         vivienda = Vivienda.objects.get(id=vivienda_id)
     except Vivienda.DoesNotExist:
         return JsonResponse({'error': 'Vivienda no existe'}, status=400)
     if Usuario.objects.filter(email=email).exists():
         return JsonResponse({'error': 'Email ya registrado'}, status=400)
-    Usuario.objects.create_user(
+    usuario = Usuario.objects.create_user(
         email=email,
         nombre=nombre,
         apellido=apellido,
         password=password,
-        vivienda=vivienda
+        vivienda=vivienda,
     )
+    usuario.community = vivienda.community
+    usuario.save()
     return JsonResponse({'message': 'Usuario registrado correctamente'})
 
 # --- Listado de viviendas para el frontend ---
@@ -355,27 +365,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             return Response({"status": "Contraseña actualizada"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def solicitar_reset_password(request):
-    email = request.data.get('email')
-    try:
-        user = Usuario.objects.get(email=email)
-        # Generar token (usa tu lógica de tokens existente o django-rest-passwordreset)
-        # Enviar email con el token (implementa esto según tu proveedor de email)
-        return Response({"status": "Correo enviado"})
-    except Usuario.DoesNotExist:
-        return Response({"error": "Usuario no encontrado"}, status=404)
-    
-    
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def confirmar_reset_password(request):
-    token = request.data.get('token')
-    new_password = request.data.get('new_password')
-    # Validar token y cambiar contraseña
-    # Implementa la lógica según tu sistema de tokens
-    return Response({"status": "Contraseña actualizada"})
+
 
 # --- CRUD de viviendas (admin y frontend) ---
 class ViviendaViewSet(viewsets.ModelViewSet):
@@ -662,3 +652,18 @@ def get_ocupados(request):
         date=date
     ).values_list('timeslot_id', flat=True)
     return Response(list(ocupados))
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def viviendas_por_codigo(request):
+    codigo = request.data.get('codigo')
+    try:
+        comunidad = Community.objects.get(code=codigo)
+    except Community.DoesNotExist:
+        return Response({'error': 'Código de comunidad no válido'}, status=400)
+    viviendas = Vivienda.objects.filter(community=comunidad)
+    data = [{'id': v.id, 'nombre': v.nombre} for v in viviendas]
+    return Response({
+        'viviendas': data,
+        'comunidad_nombre': comunidad.name  # <-- Añade esto
+    })

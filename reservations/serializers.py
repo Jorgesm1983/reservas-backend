@@ -130,17 +130,31 @@ class UsuarioSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    codigo_comunidad = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = Usuario
         fields = (
             'id', 'nombre', 'apellido', 'email', 
             'is_staff', 'vivienda', 'community',
-            'vivienda_id', 'community_id'
+            'vivienda_id', 'community_id', 'codigo_comunidad'
         )
-    
-    def get_vivienda(self, obj):
-        return obj.vivienda.nombre if obj.vivienda else None
+
+    def validate(self, data):
+        codigo = data.get('codigo_comunidad')
+        vivienda = data.get('vivienda')
+        try:
+            comunidad = Community.objects.get(code=codigo)
+        except Community.DoesNotExist:
+            raise serializers.ValidationError({'codigo_comunidad': 'Código de comunidad no válido'})
+        if vivienda and vivienda.community != comunidad:
+            raise serializers.ValidationError({'vivienda_id': 'La vivienda no pertenece a la comunidad seleccionada'})
+        data['community'] = comunidad
+        return data
+
+    def create(self, validated_data):
+        validated_data.pop('codigo_comunidad', None)
+        return super().create(validated_data)
         
 class ReservationSerializer(serializers.ModelSerializer):
     user = UsuarioSerializer(read_only=True)

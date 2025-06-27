@@ -6,7 +6,7 @@ from reservations.views import (
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
     UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, 
-    CommunityViewSet, solicitar_reset_password, confirmar_reset_password, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet, get_ocupados)
+    CommunityViewSet, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet, get_ocupados, viviendas_por_codigo)
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -44,13 +44,14 @@ urlpatterns = [
     path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitaciones/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitados-externos/<str:email>/', eliminar_invitado_externo),
-    path('api/reset-password/', solicitar_reset_password),
-    path('api/reset-password-confirm/', confirmar_reset_password),
+
     path('api/dashboard/', user_dashboard, name='user-dashboard'), 
     path('api/confirmar_invitacion/<str:token>/', confirmar_invitacion, name='confirmar_invitacion'),  
     path('api/proximos_partidos_invitado/', proximos_partidos_invitado, name='proximos_partidos_invitado'),
     path('api/invitaciones/<str:token>/aceptar/', AceptarInvitacionView.as_view(), name='aceptar-invitacion'),
     path('api/invitaciones/<str:token>/rechazar/', RechazarInvitacionView.as_view(), name='rechazar-invitacion'),
     path('api/horarios-ocupados/', get_ocupados, name='horarios-ocupados'),
+    path('api/viviendas_por_codigo/', viviendas_por_codigo, name='viviendas_por_codigo'),
+    path('api/password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
 ]
 

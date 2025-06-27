@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'reservations',
     'rest_framework_simplejwt',
+    'django_rest_passwordreset',
+
 ]
 
 MIDDLEWARE = [
