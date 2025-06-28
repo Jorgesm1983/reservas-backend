@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import environ
+
+env = environ.Env()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,12 +26,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-@699w4z7%3fd!owf2li)#ak)vt4slo11g%qy7yzlf@k7po((89"
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+
 AUTH_USER_MODEL = 'reservations.Usuario'  # Reemplaza 'tu_app' por el nombre real de tu aplicación
 
 # Application definition
@@ -76,13 +81,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "padel_reservation_backend.wsgi.application"
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.ionos.es'
+EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = 'info@pistareserva.com' 
-DEFAULT_FROM_EMAIL = 'info@pistareserva.com'
-EMAIL_HOST_PASSWORD = 'Lucia.Sofia.2709'
+EMAIL_HOST_USER = env('EMAIL_HOST_USER') 
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL') 
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
 
 
@@ -94,11 +99,11 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "padel_db",
-        'USER': 'root',
-        'PASSWORD': 'Password1576',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
         },
@@ -141,6 +146,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')   # Carpeta donde se recopilarán los archivos estáticos para producción
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')     # Carpeta donde se guardarán los archivos subidos por los usuarios
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -148,7 +157,7 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOW_CREDENTIALS = True      # ← permite cookies
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
 
 REST_FRAMEWORK = {
   'DEFAULT_PERMISSION_CLASSES': [
@@ -169,19 +178,11 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
 }
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.36']  # tu IP local aquí
-# O para desarrollo:
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = env('ALLOWED_HOSTS').split(',')  # tu IP local aquí
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",           # React en localhost
-    "http://127.0.0.1:3000",           # React en localhost
-    "http://192.168.1.36:3000",
-    
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 
-    # Añade aquí cualquier otra IP/puerto desde donde accedas al frontend
-]
 
 LOGGING = {
     'version': 1,
