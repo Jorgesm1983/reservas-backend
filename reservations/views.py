@@ -205,8 +205,8 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def invitar(self, request, pk=None):
-        print("==> Llamada a invitar")
-        print("Datos recibidos:", request.data)
+        # print("==> Llamada a invitar")
+        # print("Datos recibidos:", request.data)
         reserva = self.get_object()
         invitaciones_data = request.data.get('invitaciones', [])
         if not invitaciones_data:
@@ -228,25 +228,25 @@ class ReservationViewSet(viewsets.ModelViewSet):
             )
                     
         for data in invitaciones_data:
-            print("\n=== Procesando invitación ===")
-            print("Datos recibidos:", data)
+            # print("\n=== Procesando invitación ===")
+            # print("Datos recibidos:", data)
             try:
                 email = data.get('email')
-                print("Email recibido:", email)
+                # print("Email recibido:", email)
                 if not email:
-                    print("No se encontró email, se omite esta invitación.")
+                    # print("No se encontró email, se omite esta invitación.")
                     continue
 
                 invitado_usuario = Usuario.objects.filter(email=email).first()
-                print("Usuario encontrado:", invitado_usuario)
+                # print("Usuario encontrado:", invitado_usuario)
 
                 invitacion_anterior = ReservationInvitation.objects.filter(reserva=reserva, email=email).first()
-                print("Invitación anterior:", invitacion_anterior)
+                # print("Invitación anterior:", invitacion_anterior)
 
                 nombre = data.get('nombre', "")
                 nombre_invitado = data.get('nombre_invitado', "")
-                print("Nombre recibido (nombre):", nombre)
-                print("Nombre recibido (nombre_invitado):", nombre_invitado)
+                # print("Nombre recibido (nombre):", nombre)
+                # print("Nombre recibido (nombre_invitado):", nombre_invitado)
 
                 nombre_final = (
                     (nombre or nombre_invitado).strip()
@@ -257,7 +257,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
                         else email.split('@')[0]
                     )
                 )
-                print("Nombre final usado:", nombre_final)
+                # print("Nombre final usado:", nombre_final)
 
                 # Actualiza o crea InvitadoExterno SIEMPRE con el nombre recibido si no es vacío
                 invitado_ext, created_ext = InvitadoExterno.objects.update_or_create(
@@ -265,13 +265,13 @@ class ReservationViewSet(viewsets.ModelViewSet):
                     email=email,
                     defaults={'nombre': nombre_final}
                 )
-                print("InvitadoExterno creado/actualizado:", invitado_ext, "Creado:", created_ext)
+                # print("InvitadoExterno creado/actualizado:", invitado_ext, "Creado:", created_ext)
 
                 # Si ya existe y el nombre recibido es no vacío y distinto, actualiza
                 if (nombre_final and invitado_ext.nombre != nombre_final) or not invitado_ext.nombre:
                     invitado_ext.nombre = nombre_final or email.split('@')[0]
                     invitado_ext.save(update_fields=['nombre'])
-                    print("Nombre de InvitadoExterno actualizado a:", invitado_ext.nombre)
+                    # print("Nombre de InvitadoExterno actualizado a:", invitado_ext.nombre)
 
                 # Actualiza o crea ReservationInvitation SIEMPRE con el nombre recibido si no es vacío
                 invitacion, created = ReservationInvitation.objects.get_or_create(
@@ -282,21 +282,21 @@ class ReservationViewSet(viewsets.ModelViewSet):
                         'nombre_invitado': nombre_final
                     }
                 )
-                print("ReservationInvitation creado/actualizado:", invitacion, "Creado:", created)
+                # print("ReservationInvitation creado/actualizado:", invitacion, "Creado:", created)
 
                 if (nombre_final and invitacion.nombre_invitado != nombre_final) or not invitacion.nombre_invitado:
                     invitacion.nombre_invitado = nombre_final or email.split('@')[0]
                     invitacion.save(update_fields=['nombre_invitado'])
-                    print("Nombre de ReservationInvitation actualizado a:", invitacion.nombre_invitado)
+                    # print("Nombre de ReservationInvitation actualizado a:", invitacion.nombre_invitado)
 
                 if created:
-                    print("Enviando email de invitación...")
+                    # print("Enviando email de invitación...")
                     self._enviar_email_invitacion(invitacion)
             except IntegrityError as e:
-                print("IntegrityError:", e)
+                # print("IntegrityError:", e)
                 pass
             except Exception as e:
-                print("Excepción inesperada:", e)
+                # print("Excepción inesperada:", e)
                 return Response(
                     {"error": "Error al procesar invitaciones", "detalle": str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -306,7 +306,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
             {"status": "Invitaciones procesadas", "invitaciones_creadas": len(invitaciones_data)},
             status=status.HTTP_201_CREATED
         )
-        print("Invitación creada:", invitacion, "Creada:", created)
+        # print("Invitación creada:", invitacion, "Creada:", created)
     def _enviar_email_invitacion(self, invitacion):
         invitacion.generar_token()
         context = {
