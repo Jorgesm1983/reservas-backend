@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Invitación a partido de pádel</title>
+</head>
+<body style="background:#f4f4f4; margin:0; padding:0;">
+  <table width="100%" bgcolor="#f4f4f4" cellpadding="0" cellspacing="0" style="padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" bgcolor="#ffffff" cellpadding="0" cellspacing="0" style="border-radius:8px; box-shadow:0 2px 8px #ddd; font-family:Arial,sans-serif;">
+          <tr>
+            <td align="center" style="padding:32px 24px 16px 24px;">
+             <span style="font-family:Arial,sans-serif;font-size:32px;font-weight:bold;color:#0e2340;">
+  PistaReserva
+  <span style="display:inline-block;width:18px;height:18px;background:radial-gradient(circle at 60% 40%, #c6ff00 70%, #e0ff70 100%);border-radius:50%;vertical-align:middle;margin-left:6px;"></span>
+</span>
+              <h2 style="color:#0e2340; margin:0 0 12px 0;">¡Has recibido una invitación!</h2>
+              <p style="font-size:18px; color:#222; margin:0 0 12px 0;">
+                <strong>{{ convocante }}</strong> te ha invitado a un partido de pádel.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 16px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+                <tr>
+                  <td style="padding:8px 0;"><b>Pista:</b> {{ pista }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;"><b>Fecha:</b> {{ fecha }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;"><b>Hora:</b> {{ hora_inicio }} - {{ hora_fin }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;"><b>Dirección:</b> {{ direccion_pista }}</td>
+                </tr>
+              </table>
+              <p style="font-size:16px; color:#444; margin-bottom:24px;">
+                Por favor, confirma tu asistencia:
+              </p>
+              <table cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 0 0 16px 0;">
+                    <a href="{{ enlace_aceptar }}" style="background:#4caf50;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:18px;font-weight:bold;display:inline-block;margin-right:10px;">
+                      ✅ Aceptar invitación
+                    </a>
+                    <a href="{{ enlace_rechazar }}" style="background:#f44336;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:18px;font-weight:bold;display:inline-block;">
+                      ❌ Rechazar invitación
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="font-size:13px; color:#888; margin-top:32px;">
+                Si tienes dudas, contacta con el organizador.<br>
+                ¡Nos vemos en la pista!<br>
+                <span style="color:#0e2340;font-weight:bold;">Equipo PistaReserva</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="font-size:12px; color:#aaa; margin-top:24px;">
+          Este email es automático, por favor no respondas a este mensaje.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

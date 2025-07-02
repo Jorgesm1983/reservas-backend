@@ -22,7 +22,7 @@ from rest_framework.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -31,7 +31,7 @@ from django.utils import timezone
 
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-
+import logging
 # import logging
 # logger = logging.getLogger(__name__)
 
@@ -318,17 +318,24 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'hora_inicio': invitacion.reserva.timeslot.start_time,
             'hora_fin': invitacion.reserva.timeslot.end_time,
             'direccion_pista': invitacion.reserva.court.community.direccion if hasattr(invitacion.reserva.court, 'direccion') else "Consultar en recepción",
-            'enlace_aceptar': f"https://tudominio.com/invitaciones/{invitacion.token}/aceptar/",
-            'enlace_rechazar': f"https://tudominio.com/invitaciones/{invitacion.token}/rechazar/"
+            'enlace_aceptar': f"http://www.pistareserva.com/invitacion/{invitacion.token}/aceptar/",
+            'enlace_rechazar': f"http://www.pistareserva.com/invitacion/{invitacion.token}/rechazar/"
         }
-        mensaje = render_to_string('emails/invitacion_reserva.txt', context)
-        send_mail(
-            subject='Invitación a partido de pádel',
-            message=mensaje,
-            from_email=None,
-            recipient_list=[invitacion.email],
-            fail_silently=False
-        )
+
+        try:
+            mensaje_html = render_to_string('emails/invitacion_reserva.html', context)
+            mensaje_txt = render_to_string('emails/invitacion_reserva.txt', context)
+            email = EmailMultiAlternatives(
+    	        subject='Invitación a partido de pádel',
+    	        body=mensaje_txt,  # Texto plano como fallback
+    	        from_email="info@pistareserva.com",
+    	        to=[invitacion.email],
+            )
+            email.attach_alternative(mensaje_html, "text/html")
+            email.send()
+        except Exception as e:
+            import logging 
+            logging.exception(f"Error enviando invitacion: {e}")
 
 # --- CRUD de usuarios (admin) ---
 class UserViewSet(viewsets.ModelViewSet):
@@ -358,6 +365,11 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def cambiar_password(self, request, pk=None):
         usuario = self.get_object()
+        
+            # Permitir cambio si es el mismo usuario o si es staff
+        if not (request.user == usuario or request.user.is_staff):
+            return Response({'detail': 'No tienes permiso para cambiar esta contraseña.'}, status=status.HTTP_403_FORBIDDEN)  
+
         serializer = ChangePasswordSerializer(data=request.data)
         if serializer.is_valid():
             usuario.set_password(serializer.validated_data['new_password'])
@@ -468,12 +480,20 @@ class CustomLoginView(TokenObtainPairView):
 @api_view(['POST'])
 def confirmar_invitacion(request, token):
     try:
+        if request.method != "POST":
+            return Response({'error': 'Método no permitido'}, status=405)
+        aceptar = request.data.get('aceptar')
+        if aceptar is None:
+            return Response({'error': 'Campo "aceptar" requerido.'}, status=400)
         invitacion = ReservationInvitation.objects.get(token=token)
-        invitacion.estado = 'aceptada' if request.data.get('aceptar') else 'rechazada'
+        invitacion.estado = 'aceptada' if aceptar else 'rechazada'
         invitacion.save()
-        return Response({"status": "Invitación actualizada"})
+        return Response({'status': 'Invitación actualizada'})
     except ReservationInvitation.DoesNotExist:
-        return Response({"error": "Invitación no válida"}, status=404)
+        return Response({'error': 'Invitación no válida'}, status=404)
+    except Exception as e:
+        logging.exception("Error en confirmarinvitacion")
+        return Response({'error': str(e)}, status=500)
 
 
 

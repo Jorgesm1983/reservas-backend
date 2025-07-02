@@ -51,6 +51,11 @@ INSTALLED_APPS = [
 
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'reservations.backends.EmailBackend',  # Ruta al backend que acabas de crear
+    'django.contrib.auth.backends.ModelBackend',  # Opcional, por si quieres login por username
+]
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -142,7 +147,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')   # Carpeta donde se recopilarán los archivos estáticos para producción
 
 MEDIA_URL = '/media/'
@@ -207,3 +212,8 @@ LOGGING = {
         },
     },
 }
+
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True

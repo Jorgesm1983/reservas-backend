@@ -9,7 +9,10 @@ Detalles de la reserva:
 - Dirección: {{ direccion_pista }}
 
 Confirma tu asistencia:
+
 ✅ Aceptar: {{ enlace_aceptar }}
 ❌ Rechazar: {{ enlace_rechazar }}
+
+¡Esperamos que puedas unirte
 
 ¡Esperamos que puedas unirte!

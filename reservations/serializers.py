@@ -38,7 +38,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'user_id': self.user.id,
             'email': self.user.email,
             'user_id': self.user.id,
-            'is_staff': self.user.is_staff,  # ← Añadido
+            'is_staff': self.user.is_staff,
+	      # ← Añadido
             'nombre': self.user.nombre
         })
         return data
@@ -130,7 +131,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
-    codigo_comunidad = serializers.CharField(write_only=True, required=True)
+    codigo_comunidad = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = Usuario
@@ -140,16 +141,26 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'vivienda_id', 'community_id', 'codigo_comunidad'
         )
 
+    
     def validate(self, data):
+    # Obtiene la comunidad por ID o por código
+        comunidad = data.get('community') or data.get('community_id')
         codigo = data.get('codigo_comunidad')
         vivienda = data.get('vivienda')
-        try:
-            comunidad = Community.objects.get(code=codigo)
-        except Community.DoesNotExist:
-            raise serializers.ValidationError({'codigo_comunidad': 'Código de comunidad no válido'})
-        if vivienda and vivienda.community != comunidad:
+
+        if not comunidad:
+        # Si no hay comunidad explícita, exige el código
+            if not codigo:
+                raise serializers.ValidationError({'codigo_comunidad': 'Este campo es obligatorio'})
+            try:
+                comunidad = Community.objects.get(code=codigo)
+            except Community.DoesNotExist:
+                raise serializers.ValidationError({'codigo_comunidad': 'Código de comunidad no válido'})
+            data['community'] = comunidad
+
+    # Validar vivienda si se proporciona
+        if vivienda and comunidad and vivienda.community != comunidad:
             raise serializers.ValidationError({'vivienda_id': 'La vivienda no pertenece a la comunidad seleccionada'})
-        data['community'] = comunidad
         return data
 
     def create(self, validated_data):
