@@ -8,7 +8,7 @@ from django.utils.html import strip_tags
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
     context = {
         'current_user': reset_password_token.user,
-        'reset_password_url': f"https://192.168.1.37:3000/reset-password-confirm/?token={reset_password_token.key}"
+        'reset_password_url': f"http://www.pistareserva.com/reset-password-confirm/?token={reset_password_token.key}"
     }
     html_content = render_to_string('emails/user_reset_password.html', context)
     text_content = strip_tags(html_content)

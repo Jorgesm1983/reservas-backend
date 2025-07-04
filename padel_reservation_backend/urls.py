@@ -45,7 +45,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/registro_usuario', registro_usuario),
     path('api/obtener_viviendas', obtener_viviendas),
-    path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
+    # path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitaciones/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitados-externos/<str:email>/', eliminar_invitado_externo),
 

@@ -318,8 +318,8 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'hora_inicio': invitacion.reserva.timeslot.start_time,
             'hora_fin': invitacion.reserva.timeslot.end_time,
             'direccion_pista': invitacion.reserva.court.community.direccion if hasattr(invitacion.reserva.court, 'direccion') else "Consultar en recepción",
-            'enlace_aceptar': f"http://www.pistareserva.com/invitacion/{invitacion.token}/aceptar/",
-            'enlace_rechazar': f"http://www.pistareserva.com/invitacion/{invitacion.token}/rechazar/"
+            'enlace_aceptar': f"http://www.pistareserva.com/invitaciones/{invitacion.token}/aceptar/",
+            'enlace_rechazar': f"http://www.pistareserva.com/invitaciones/{invitacion.token}/rechazar/"
         }
 
         try:
