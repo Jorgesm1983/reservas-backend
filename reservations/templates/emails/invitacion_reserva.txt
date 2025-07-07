@@ -1,6 +1,6 @@
 Hola {{ nombre_invitado }},
 
-{{ convocante }} te invita a jugar al pádel.
+{{ convocante }} te invita a jugar un partido.
 
 Detalles de la reserva:
 - Fecha: {{ fecha }}

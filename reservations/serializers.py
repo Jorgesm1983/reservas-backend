@@ -47,7 +47,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Community
-        fields = ['id', 'name','direccion']
+        fields = ['id', 'name','direccion', 'code']
         
 class CourtSerializer(serializers.ModelSerializer):
     

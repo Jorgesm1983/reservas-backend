@@ -605,12 +605,16 @@ class AceptarInvitacionView(APIView):
     permission_classes = [AllowAny]
     def get(self, request, token):
         try:
-            invitacion = ReservationInvitation.objects.get(token=token)
+            invitacion = ReservationInvitation.objects.select_related(
+                'reserva', 'reserva__court', 'reserva__timeslot', 'reserva__court__community'
+            ).get(token=token)
+            data = ReservationInvitationSerializer(invitacion).data
             if invitacion.estado == "aceptada":
-                return Response({"detail": "La invitación ya fue aceptada."}, status=200)
+                return Response({"detail": "La invitación ya fue aceptada.", "invitacion": data}, status=200)
             invitacion.estado = "aceptada"
             invitacion.save()
-            return Response({"detail": "Invitación aceptada correctamente."}, status=200)
+            data = ReservationInvitationSerializer(invitacion).data
+            return Response({"detail": "Invitación aceptada correctamente.", "invitacion": data}, status=200)
         except ReservationInvitation.DoesNotExist:
             return Response({"detail": "Invitación no encontrada."}, status=404)
         
