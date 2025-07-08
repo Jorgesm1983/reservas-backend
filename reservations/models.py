@@ -10,6 +10,9 @@ class Community(models.Model):
     name = models.CharField("Nombre de la comunidad", max_length=100)
     direccion = models.CharField("Dirección", max_length=255, blank=True, null=True)  # <-- Añade esto
     code = models.CharField(max_length=20, unique=True, null=False, blank=False, help_text="Código de registro de la comunidad")
+    reserva_hora_apertura_pasado = models.TimeField(default="08:00", help_text="Hora apertura reservas para pasado mañana")
+    reserva_max_dias = models.PositiveIntegerField(default=2, help_text="Máximo días vista (0=hoy, 1=mañana, 2=pasado mañana)")
+    # Puedes añadir más campos si en el futuro necesitas reglas distintas
     # # Otros campos comunes a todas las comunidades (ej: contacto, logo, etc.)
 
     def __str__(self):
@@ -90,6 +93,9 @@ class Court(models.Model):
     name = models.CharField(max_length=100, unique=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
     community = models.ForeignKey(Community, on_delete=models.CASCADE, null = True, default= 1)  # Relación con comunidad
+    # Opcional: sobreescribir la política por pista
+    reserva_hora_apertura_pasado = models.TimeField(null=True, blank=True)
+    reserva_max_dias = models.PositiveIntegerField(null=True, blank=True)
     # ... otros campos (ej: tipo de superficie, capacidad)
 
     def __str__(self):
@@ -98,17 +104,17 @@ class Court(models.Model):
         verbose_name_plural = "Pistas"
 
 class TimeSlot(models.Model):
-    community = models.ForeignKey('Community', on_delete=models.CASCADE, related_name='timeslots', null = True, blank = True)
+    court = models.ForeignKey('Court', on_delete=models.CASCADE, related_name="timeslots", null=False)
     slot = models.CharField(max_length=50)
     start_time = models.TimeField()
     end_time = models.TimeField()
 
     class Meta:
-        unique_together = ('community', 'start_time', 'end_time')
+        unique_together = ('court', 'start_time', 'end_time')
         ordering = ['start_time']
 
     def __str__(self):
-        return f"{self.community.name} - {self.start_time.strftime('%H:%M')}–{self.end_time.strftime('%H:%M')}"
+        return f"{self.court.name} - {self.start_time.strftime('%H:%M')}–{self.end_time.strftime('%H:%M')}"
 
 class Reservation(models.Model):  
     ESTADOS = (

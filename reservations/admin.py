@@ -41,9 +41,9 @@ class CourtAdmin(admin.ModelAdmin):
 
 @admin.register(TimeSlot)
 class TimeSlotAdmin(admin.ModelAdmin):
-    list_display = ('slot', 'start_time', 'end_time', 'community')
-    list_filter = ('community',)
-    search_fields = ('slot',)
+    list_display = ('slot', 'start_time', 'end_time', 'court')
+    list_filter = ('court',)
+    search_fields = ('court__name', 'slot')
 
     ordering = ('start_time',)
 

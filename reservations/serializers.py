@@ -65,11 +65,11 @@ class CourtSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'community', 'comunidad_nombre', 'comunidad_direccion', 'community_id']
 
 class TimeSlotSerializer(serializers.ModelSerializer):
-    community = CommunitySerializer(read_only=True)
-    communityid = serializers.PrimaryKeyRelatedField(queryset=Community.objects.all(), source='community', write_only=True)
+    court = CourtSerializer(read_only=True)
+    courtid = serializers.PrimaryKeyRelatedField(queryset=Court.objects.all(), source='court', write_only=True)
     class Meta:
         model = TimeSlot
-        fields = ['id', 'slot', 'start_time', 'end_time', 'community', 'communityid']
+        fields = ['id', 'slot', 'start_time', 'end_time', 'court', 'courtid']
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -208,6 +208,15 @@ class WriteReservationSerializer(serializers.ModelSerializer):
                 message="Este horario ya está reservado"
             )
         ]
+        
+    def validate(self, data):
+        court = data.get('court')
+        timeslot = data.get('timeslot')
+        if timeslot.court != court:
+            raise serializers.ValidationError({
+                'timeslot': 'El turno seleccionado no pertenece a la pista seleccionada.'
+            })
+        return data
 
 class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])

@@ -115,17 +115,21 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        community_id = self.request.query_params.get('community', None)
+        court_id = self.request.query_params.get('court')
         
-        user = self.request.user
-        community_id = self.request.query_params.get('community', None)
-        if user.is_staff and community_id:
-            return TimeSlot.objects.filter(community_id=community_id)
-        elif user.is_staff:
+        if user.is_staff:
+        # Staff puede ver todos los turnos o filtrar por pista
+            if court_id:
+                return TimeSlot.objects.filter(court_id=court_id)
             return TimeSlot.objects.all()
-        elif user.community:
-            return TimeSlot.objects.filter(community=user.community)
-        return TimeSlot.objects.none()
+        else:
+            # Usuarios normales solo pueden ver los turnos de las pistas de su comunidad
+            if hasattr(user, 'community') and user.community:
+                qs = TimeSlot.objects.filter(court__community=user.community)
+                if court_id:
+                    qs = qs.filter(court_id=court_id)
+                return qs
+            return TimeSlot.objects.none()
 
 # --- Filtro para reservas ---
 class ReservationFilter(filters.FilterSet):
