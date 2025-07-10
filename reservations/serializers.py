@@ -8,7 +8,7 @@ from django.utils import timezone
 from reservations.models import TimeSlot
 from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.password_validation import validate_password
-
+from datetime import datetime
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'  # Indica que usas 'nombre' como USERNAME_FIELD
@@ -47,10 +47,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Community
-        fields = ['id', 'name','direccion', 'code']
-        
+        fields = ['id', 'name', 'direccion', 'code', 'reserva_hora_apertura_pasado', 'reserva_max_dias']
+
 class CourtSerializer(serializers.ModelSerializer):
-    
     comunidad_nombre = serializers.CharField(source='community.name', read_only=True)
     comunidad_direccion = serializers.CharField(source='community.direccion', read_only=True)
     community_id = serializers.PrimaryKeyRelatedField(
@@ -59,10 +58,51 @@ class CourtSerializer(serializers.ModelSerializer):
         write_only=True,
         required=True
     )
-    
+    reserva_hora_apertura_pasado = serializers.SerializerMethodField()
+    reserva_max_dias = serializers.SerializerMethodField()
+
     class Meta:
         model = Court
-        fields = ['id', 'name', 'community', 'comunidad_nombre', 'comunidad_direccion', 'community_id']
+        fields = [
+            'id', 'name', 'community', 'comunidad_nombre', 'comunidad_direccion',
+            'community_id', 'reserva_hora_apertura_pasado', 'reserva_max_dias'
+        ]
+
+    def get_reserva_hora_apertura_pasado(self, obj):
+        # Si la pista tiene valor, úsalo; si no, usa el de la comunidad
+        if obj.reserva_hora_apertura_pasado is not None:
+            return obj.reserva_hora_apertura_pasado
+        if obj.community and obj.community.reserva_hora_apertura_pasado is not None:
+            return obj.community.reserva_hora_apertura_pasado
+        return None
+
+    def get_reserva_max_dias(self, obj):
+        if obj.reserva_max_dias is not None:
+            return obj.reserva_max_dias
+        if obj.community and obj.community.reserva_max_dias is not None:
+            return obj.community.reserva_max_dias
+        return None
+
+
+# class CourtSerializer(serializers.ModelSerializer):
+    
+#     comunidad_nombre = serializers.CharField(source='community.name', read_only=True)
+#     comunidad_direccion = serializers.CharField(source='community.direccion', read_only=True)
+#     community_id = serializers.PrimaryKeyRelatedField(
+#         queryset=Community.objects.all(),
+#         source='community',
+#         write_only=True,
+#         required=True
+#     )
+#     reserva_hora_apertura_pasado = serializers.TimeField(required=False)
+#     reserva_max_dias = serializers.IntegerField(required=False)
+    
+#     class Meta:
+#         model = Court
+#         fields = [
+#             'id', 'name', 'community', 'comunidad_nombre', 'comunidad_direccion',
+#             'community_id', 'reserva_hora_apertura_pasado', 'reserva_max_dias'
+#         ]
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     court = CourtSerializer(read_only=True)
@@ -212,11 +252,37 @@ class WriteReservationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         court = data.get('court')
         timeslot = data.get('timeslot')
+        date = data.get('date')
+
+        # Validación de turno y pista
         if timeslot.court != court:
             raise serializers.ValidationError({
                 'timeslot': 'El turno seleccionado no pertenece a la pista seleccionada.'
             })
+
+        # Obtén reglas de la pista o comunidad
+        hora_apertura = court.reserva_hora_apertura_pasado or court.community.reserva_hora_apertura_pasado
+        max_dias = court.reserva_max_dias if court.reserva_max_dias is not None else court.community.reserva_max_dias
+
+        now = datetime.now()
+        hoy = now.date()
+        dias_diferencia = (date - hoy).days
+
+        # No permitir fechas pasadas
+        if dias_diferencia < 0:
+            raise serializers.ValidationError("No puedes reservar para fechas pasadas.")
+
+        # No permitir más allá del máximo configurado
+        if dias_diferencia > max_dias:
+            raise serializers.ValidationError(f"Solo puedes reservar hasta {max_dias} días vista.")
+
+        # Para el último día permitido, solo a partir de la hora de apertura
+        if dias_diferencia == max_dias and now.time() < hora_apertura:
+            hora_str = hora_apertura.strftime("%H:%M")
+            raise serializers.ValidationError(f"Las reservas para ese día se abren a partir de las {hora_str}.")
+
         return data
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])

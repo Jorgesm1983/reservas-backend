@@ -36,9 +36,10 @@ class UsuarioAdmin(UserAdmin):
 # Mantenemos tus configuraciones existentes
 @admin.register(Court)
 class CourtAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'direccion', 'community')
-    search_fields = ('name', 'direccion', 'community__name')
-
+    list_display = ('name', 'community', 'reserva_hora_apertura_pasado', 'reserva_max_dias')
+    list_editable = ('reserva_hora_apertura_pasado', 'reserva_max_dias')
+    list_filter = ('community',)
+    
 @admin.register(TimeSlot)
 class TimeSlotAdmin(admin.ModelAdmin):
     list_display = ('slot', 'start_time', 'end_time', 'court')
@@ -78,7 +79,8 @@ class ReservationInvitationAdmin(admin.ModelAdmin):
 
 @admin.register(Community)
 class CommunityAdmin(admin.ModelAdmin):
-    list_display = ('name',)
+    list_display = ('name', 'reserva_hora_apertura_pasado', 'reserva_max_dias')
+    list_editable = ('reserva_hora_apertura_pasado', 'reserva_max_dias')
     
 
 @admin.register(ReservationCancelada)

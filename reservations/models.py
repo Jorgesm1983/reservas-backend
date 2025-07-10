@@ -55,7 +55,7 @@ class UsuarioManager(BaseUserManager):
 
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
-    nombre = models.CharField(_('nombre'), max_length=150, unique=True)
+    nombre = models.CharField(_('nombre'), max_length=150)
     apellido = models.CharField(_('apellido'), max_length=150, blank=True)
     email = models.EmailField(_('email'), unique=True)
     vivienda = models.ForeignKey(Vivienda, on_delete=models.SET_NULL, null=True, blank=True)
