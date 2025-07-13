@@ -322,8 +322,8 @@ class ReservationViewSet(viewsets.ModelViewSet):
             'hora_inicio': invitacion.reserva.timeslot.start_time,
             'hora_fin': invitacion.reserva.timeslot.end_time,
             'direccion_pista': invitacion.reserva.court.community.direccion if hasattr(invitacion.reserva.court, 'direccion') else "Consultar en recepción",
-            'enlace_aceptar': f"http://www.pistareserva.com/invitaciones/{invitacion.token}/aceptar/",
-            'enlace_rechazar': f"http://www.pistareserva.com/invitaciones/{invitacion.token}/rechazar/"
+            'enlace_aceptar': f"https://www.pistareserva.com/invitaciones/{invitacion.token}/aceptar/",
+            'enlace_rechazar': f"https://www.pistareserva.com/invitaciones/{invitacion.token}/rechazar/"
         }
 
         try:
@@ -407,6 +407,13 @@ class ReservationInvitationViewSet(viewsets.ModelViewSet):
     serializer_class = ReservationInvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     community_id = self.request.query_params.get('community')
+    #     qs = Usuario.objects.exclude(id=user.id)
+    #     if community_id:
+    #         qs = qs.filter(community_id=community_id)
+    #     return qs
 
     def get_queryset(self):
         user = self.request.user
@@ -464,10 +471,19 @@ class UsuarioComunidadViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+
     def get_queryset(self):
-        return Usuario.objects.exclude(id=self.request.user.id)\
-            .select_related('vivienda')\
-            .order_by('vivienda__nombre')
+        user = self.request.user
+        community_id = self.request.query_params.get('community')
+        qs = Usuario.objects.exclude(id=user.id).select_related('vivienda').order_by('vivienda__nombre')
+
+        if getattr(user, 'is_staff', False) and community_id:
+            return qs.filter(community_id=community_id)
+        elif getattr(user, 'is_staff', False):
+            return qs.none()  # Staff sin comunidad seleccionada: no ve usuarios
+        elif getattr(user, 'community_id', None):
+            return qs.filter(community_id=user.community_id)
+        return qs.none()
 
 # --- Vista personalizada para login con JWT ---
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
