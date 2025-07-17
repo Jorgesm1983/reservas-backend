@@ -172,13 +172,15 @@ class UsuarioSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     codigo_comunidad = serializers.CharField(write_only=True, required=False)
+    accepted_terms = serializers.BooleanField(write_only=True)
+    terms_accepted_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = Usuario
         fields = (
             'id', 'nombre', 'apellido', 'email', 
             'is_staff', 'vivienda', 'community',
-            'vivienda_id', 'community_id', 'codigo_comunidad'
+            'vivienda_id', 'community_id', 'codigo_comunidad', 'accepted_terms', 'terms_accepted_at'
         )
 
     
@@ -205,6 +207,11 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('codigo_comunidad', None)
+        accepted_terms = validated_data.pop('accepted_terms', False)
+        if not accepted_terms:
+            raise serializers.ValidationError({'accepted_terms': 'Debes aceptar los términos y condiciones.'})
+        validated_data['accepted_terms'] = True
+        validated_data['terms_accepted_at'] = timezone.now()
         return super().create(validated_data)
         
 class ReservationSerializer(serializers.ModelSerializer):
@@ -213,7 +220,7 @@ class ReservationSerializer(serializers.ModelSerializer):
     timeslot = TimeSlotSerializer(read_only=True)
     invitaciones = ReservationInvitationSerializer(many=True, read_only=True)
     estado = serializers.CharField()  # ← Añade este campo
-    
+
 
     vivienda = serializers.SerializerMethodField()  # ← Nuevo campo
 
@@ -227,6 +234,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             return obj.user.vivienda.nombre
         return None
     
+        
     def validate_date(self, value):
         if value < timezone.localdate():
             raise serializers.ValidationError("No se permiten reservas para fechas pasadas")
@@ -253,6 +261,7 @@ class WriteReservationSerializer(serializers.ModelSerializer):
         court = data.get('court')
         timeslot = data.get('timeslot')
         date = data.get('date')
+        user = data.get('user') or self.context['request'].user
 
         # Validación de turno y pista
         if timeslot.court != court:
@@ -281,6 +290,16 @@ class WriteReservationSerializer(serializers.ModelSerializer):
             hora_str = hora_apertura.strftime("%H:%M")
             raise serializers.ValidationError(f"Las reservas para ese día se abren a partir de las {hora_str}.")
 
+        vivienda = getattr(user, 'vivienda', None)
+        if vivienda:
+            qs = Reservation.objects.filter(user__vivienda=vivienda, date=date)
+            # Excluir la propia reserva si es edición
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    "Solo puede haber una reserva por vivienda y día."
+                )
         return data
 
 

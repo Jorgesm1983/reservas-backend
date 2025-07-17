@@ -11,6 +11,7 @@ from reservations.views import (
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from reservations.admin import estadisticas_dashboard_view
 
 
 
@@ -37,7 +38,7 @@ router.register(r'comunidades', CommunityViewSet, basename='comunidades')
 router.register(r'invitados-externos', InvitadoExternoViewSet, basename='invitadoexterno')
 
 urlpatterns = [
-    
+    path('django-admin/estadisticas/', estadisticas_dashboard_view, name='estadisticas-dashboard'),
     path('django-admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/login/', CustomLoginView.as_view(), name='api-login'),

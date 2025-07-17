@@ -26,26 +26,32 @@ class Vivienda(models.Model):
         return self.nombre
 
 class UsuarioManager(BaseUserManager):
-    def create_user(self, email, nombre, password=None, apellido="", vivienda=None):
+    def create_user(self, email, nombre, password=None, apellido="", vivienda=None, accepted_terms=False, terms_accepted_at=None, **extra_fields):
         if not email:
             raise ValueError('El usuario debe tener un email')
         user = self.model(
             email=self.normalize_email(email),
             nombre=nombre,
             apellido=apellido,
-            vivienda=vivienda
+            vivienda=vivienda,
+            accepted_terms=accepted_terms,
+            terms_accepted_at=terms_accepted_at,
+            **extra_fields
         )
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, nombre, password=None, apellido="", vivienda=None):
+    def create_superuser(self, email, nombre, password=None, apellido="", vivienda=None, **extra_fields):
         user = self.create_user(
             email=email,
             nombre=nombre,
             password=password,
             apellido=apellido,
-            vivienda=vivienda
+            vivienda=vivienda,
+            accepted_terms=True,  # Los superusuarios deben aceptar términos por defecto
+            terms_accepted_at=timezone.now(),
+            **extra_fields
         )
         user.is_staff = True
         user.is_superuser = True
@@ -64,6 +70,8 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(_('activo'), default=True)
     is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
+    accepted_terms = models.BooleanField(default=False)
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = 'email'  # Ahora el nombre es el campo principal
     REQUIRED_FIELDS = ['nombre']  # Campos requeridos para createsuperuser

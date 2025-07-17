@@ -1,0 +1,291 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+
+<style>
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+.kpi-card,
+.card-tb {
+    border-radius: 1rem;
+    background: #fff;
+    padding: 1.3rem 1.5rem 1.2rem 1.5rem;
+    box-shadow: 0 4px 32px rgba(80,80,120,0.09);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 120px;
+    text-align: center;
+}
+.kpi-icon {
+    font-size: 2.2rem;
+    margin-bottom: 0.4rem;
+    color: #3282b8;
+    opacity: 0.8;
+}
+.kpi-value {
+    font-size: 2.1rem;
+    font-weight: 700;
+    margin-bottom: 0.08rem;
+    color: #17294d;
+}
+.kpi-label { color: #586579; font-size: 1.09rem; font-weight: 400; text-align: center; }
+.kpi-badge {
+    font-size: 1.03rem;
+    padding: 0.37em 1.27em;
+    border-radius: 1em;
+    margin-top: 0.28rem;
+}
+.card-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #204060;
+    text-align: center;
+    margin-bottom: 1rem;
+    margin-top: .1em;
+    letter-spacing: .015em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+.card-table-content {
+    width: 100%;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+.card-table-content ul, .card-table-content ol { width: 100%; }
+.card-table-content li, .card-table-content td, .card-table-content th {
+    font-size: 1.19em;
+    text-align: center;
+    border: none !important;
+}
+.table-plain .list-group-item {
+    border: none;
+    padding: .5rem .6rem .5rem .6rem;
+    background: #f9fafb;
+    font-size: 1.16em;
+}
+.table-plain .list-group-item:not(:last-child) { border-bottom: 1px solid #eceeef !important; }
+@media (max-width: 950px) {
+    .dashboard-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .9rem; }
+    .kpi-card, .card-tb { padding: .9rem .8rem; }
+}
+</style>
+
+<div class="container-fluid py-3">
+  <h2 class="fw-bold mb-3 text-center">Panel Estadístico de Comunidad</h2>
+
+  <!-- Filtros compactos en tarjetas -->
+  <div class="dashboard-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+    <div class="kpi-card px-3 py-2 flex-row align-items-center justify-content-center" style="min-height:90px;">
+      <i class="bi bi-house-door kpi-icon me-2"></i>
+      <form method="get" class="w-100 d-flex align-items-center justify-content-center">
+        <div style="width:100%;">
+          <label class="kpi-label mb-1" for="community_id">Comunidad</label>
+          <select class="form-select form-control-lg mb-0" id="community_id" name="community_id" onchange="this.form.submit()" style="font-size:1.09em;min-width:160px;">
+            <option value="">Todas</option>
+            {% for c in comunidades_lista %}
+              <option value="{{ c.id }}" {% if c.id|stringformat:"s" == community_id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="from_date" value="{{ request.GET.from_date|default:primer_dia_mes|date:'Y-m-d' }}">
+          <input type="hidden" name="to_date" value="{{ request.GET.to_date|default:ultimo_dia_mes|date:'Y-m-d' }}">
+        </div>
+      </form>
+    </div>
+    <div class="kpi-card px-3 py-2 flex-row align-items-center justify-content-center" style="min-height:90px;">
+      <i class="bi bi-calendar-range kpi-icon me-2"></i>
+      <form method="get" class="w-100 d-flex align-items-center justify-content-center flex-wrap" style="gap: 0.6em; margin-bottom:0;">
+        <div>
+          <label class="kpi-label mb-1" for="from_date">Desde</label>
+          <input type="date" id="from_date" name="from_date" value="{{ request.GET.from_date|default:primer_dia_mes|date:'Y-m-d' }}" class="form-control form-control-lg" style="min-width:120px;">
+        </div>
+        <div>
+          <label class="kpi-label mb-1" for="to_date">Hasta</label>
+          <input type="date" id="to_date" name="to_date" value="{{ request.GET.to_date|default:ultimo_dia_mes|date:'Y-m-d' }}" class="form-control form-control-lg" style="min-width:120px;">
+        </div>
+        <div class="d-flex align-items-end flex-column flex-md-row" style="gap:.3em;">
+          <button type="submit" class="btn btn-primary mb-1 mb-md-0">Filtrar</button>
+          <a href="?" class="btn btn-outline-secondary mb-1 mb-md-0">Limpiar</a>
+        </div>
+        <input type="hidden" name="community_id" value="{{ community_id }}">
+      </form>
+    </div>
+  </div>
+
+  <!-- KPIs principales en tarjetas, todo centrado -->
+  <div class="dashboard-grid mb-4">
+    <div class="kpi-card">
+      <i class="bi bi-calendar-plus kpi-icon"></i>
+      <div class="kpi-value">{{ reservas_totales_mes|default:"-" }}</div>
+      <div class="kpi-label">Reservas (mes)</div>
+    </div>
+    <div class="kpi-card">
+      <i class="bi bi-calendar-week kpi-icon"></i>
+      <div class="kpi-value">{{ reservas_totales_semana|default:"-" }}</div>
+      <div class="kpi-label">Reservas (semana)</div>
+      <span class="kpi-badge bg-light border mt-2 text-secondary" style="font-size:1em;">
+        Semana: {{ primer_dia_semana|date:'d/m' }} al {{ ultimo_dia_semana|date:'d/m' }}
+      </span>
+    </div>
+    <div class="kpi-card">
+      <i class="bi bi-person-plus kpi-icon"></i>
+      <div class="kpi-value">{{ usuarios_nuevos|default:"-" }}</div>
+      <div class="kpi-label">Usuarios nuevos</div>
+    </div>
+    <div class="kpi-card">
+      <i class="bi bi-percent kpi-icon"></i>
+      <div class="kpi-value">
+        {% if cancelaciones and cancelaciones.tasa is not None %}{{ cancelaciones.tasa }}%{% else %}-{% endif %}
+      </div>
+      <div class="kpi-label">Tasa de cancelación</div>
+    </div>
+    <div class="kpi-card">
+      <i class="bi bi-bar-chart-line kpi-icon"></i>
+      <div class="kpi-value">
+        {% if ocupacion_media is not None %}{{ ocupacion_media }}{% else %}-{% endif %}
+      </div>
+      <div class="kpi-label">% Ocupación media pistas</div>
+    </div>
+    <div class="kpi-card">
+      <i class="bi bi-people-fill kpi-icon"></i>
+      <div class="kpi-value">{{ participacion_media|default:"-" }}</div>
+      <div class="kpi-label">Participación media</div>
+    </div>
+    <div class="kpi-card">
+      <i class="bi bi-envelope-check kpi-icon"></i>
+      <div class="kpi-value">{{ invitaciones.aceptadas|default:"0" }}/{{ invitaciones.enviadas|default:"0" }}</div>
+      <div class="kpi-label">Invitaciones aceptadas / enviadas</div>
+      <span class="kpi-badge bg-light border mt-2 text-secondary" style="font-size:1em;">
+        Aceptación {{ invitaciones.tasa_aceptacion|default:"0" }}%
+      </span>
+    </div>
+  </div>
+
+  <!-- Cards para tablas, legibilidad y centrado superior -->
+  <div class="dashboard-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));">
+    <!-- Ranking -->
+    <div class="card-tb">
+      <div class="card-title"><i class="bi bi-trophy-fill me-2 text-warning"></i>Ranking Usuarios Más Activos</div>
+      <div class="card-table-content">
+        {% if ranking_usuarios %}
+          <table class="table table-hover table-plain mb-0">
+            <thead>
+              <tr><th style="width:38px;">#</th><th>Usuario</th><th>Reservas</th></tr>
+            </thead>
+            <tbody>
+              {% for user in ranking_usuarios %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>
+                    <span class="fw-semibold text-primary">{{ user.user__nombre }}</span>
+                    <span class="text-secondary small d-block">{{ user.user__email }}</span>
+                  </td>
+                  <td class="fw-bold">{{ user.total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="text-muted py-3" style="font-size:1.09em;">Sin datos</div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Franja horaria -->
+    <div class="card-tb">
+      <div class="card-title"><i class="bi bi-clock-fill me-2 text-success"></i>Reservas por franja horaria</div>
+      <div class="card-table-content">
+        {% if por_horario %}
+          <table class="table table-hover table-plain mb-0">
+            <thead>
+              <tr><th>Horario</th><th>Reservas</th></tr>
+            </thead>
+            <tbody>
+              {% for slot in por_horario %}
+                <tr>
+                  <td>
+                    {% if slot.timeslot__start_time and slot.timeslot__end_time %}
+                      {{ slot.timeslot__start_time|slice:":5" }} - {{ slot.timeslot__end_time|slice:":5" }}
+                    {% else %}
+                      Sin horario
+                    {% endif %}
+                  </td>
+                  <td>{{ slot.total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="text-muted py-3" style="font-size:1.09em;">Sin datos</div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Ocupación por pista -->
+    <div class="card-tb">
+      <div class="card-title"><i class="bi bi-kanban me-2 text-info"></i>Ocupación por pista</div>
+      <div class="card-table-content">
+        {% if reservas_pista %}
+          <table class="table table-hover table-plain mb-0">
+            <thead>
+              <tr><th>Pista</th><th>Ocupación (%)</th></tr>
+            </thead>
+            <tbody>
+              {% for row in reservas_pista %}
+                <tr>
+                  <td>{{ row.pista }}</td>
+                  <td>{{ row.ocupacion_pct }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="text-muted py-3" style="font-size:1.09em;">Sin datos</div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Reservas por vivienda -->
+    <div class="card-tb">
+      <div class="card-title"><i class="bi bi-list-columns me-2 text-secondary"></i>Reservas por vivienda</div>
+      <div class="card-table-content">
+        {% if por_vivienda %}
+          <table class="table table-hover table-plain mb-0">
+            <thead>
+              <tr><th>Vivienda</th><th>Reservas</th></tr>
+            </thead>
+            <tbody>
+              {% for row in por_vivienda %}
+                <tr>
+                  <td>{{ row.user__vivienda__nombre }}</td>
+                  <td>{{ row.total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="text-muted py-3" style="font-size:1.09em;">Sin datos</div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Proporción de reservas -->
+    <div class="card-tb">
+      <div class="card-title"><i class="bi bi-person-badge-fill me-2 text-primary"></i>Proporción de reservas</div>
+      <div class="card-table-content">
+        <div style="margin-bottom: 1.1em;">
+          <span class="badge kpi-badge bg-success fs-5 me-2">Usuarios: {{ proporcion_staff.proporcion_usuarios_pct|default:"-" }}%</span>
+          <span class="badge kpi-badge bg-danger fs-5">Staff: {{ proporcion_staff.proporcion_staff_pct|default:"-" }}%</span>
+        </div>
+        <div class="mt-2 text-muted" style="font-size:1.11em;">Total: {{ proporcion_staff.total|default:"-" }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

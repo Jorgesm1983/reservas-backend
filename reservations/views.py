@@ -46,8 +46,15 @@ def registro_usuario(request):
     email = data.get('email')
     password = data.get('password')
     vivienda_id = data.get('vivienda_id')
+    accepted_terms = data.get('accepted_terms', False)
+    
     if not all([nombre, apellido, email, password, vivienda_id]):
         return JsonResponse({'error': 'Faltan datos'}, status=400)
+    
+    # Validación de aceptación de términos
+    if not accepted_terms:
+        return JsonResponse({'error': 'Debes aceptar los términos y condiciones.'}, status=400)
+    
     # Validación de formato de email
     try:
         validate_email(email)
@@ -65,6 +72,9 @@ def registro_usuario(request):
         apellido=apellido,
         password=password,
         vivienda=vivienda,
+        accepted_terms=True,
+        terms_accepted_at=timezone.now()
+
     )
     usuario.community = vivienda.community
     usuario.save()
@@ -530,7 +540,7 @@ class ReservationAllViewSet(viewsets.ModelViewSet):
     
     import logging
     logger = logging.getLogger(__name__)
-    
+
     def get_queryset(self):
         user = self.request.user
         community_id = self.request.query_params.get('community')
@@ -539,9 +549,21 @@ class ReservationAllViewSet(viewsets.ModelViewSet):
             return qs.filter(court__community_id=community_id)
         elif user.is_staff:
             return qs
-        elif hasattr(user, 'community_id') and user.community_id:
-            return qs.filter(court__community_id=user.community_id)
+        elif hasattr(user, 'community') and user.community:
+            return qs.filter(court__community_id=user.community.id)
         return qs.none()
+
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     community_id = self.request.query_params.get('community')
+    #     qs = Reservation.objects.select_related('user', 'court__community', 'timeslot').prefetch_related('invitaciones')
+    #     if user.is_staff and community_id:
+    #         return qs.filter(court__community_id=community_id)
+    #     elif user.is_staff:
+    #         return qs
+    #     elif hasattr(user, 'community_id') and user.community_id:
+    #         return qs.filter(court__community_id=user.community_id)
+    #     return qs.none()
 
 
     def get_serializer_class(self):
@@ -585,16 +607,28 @@ class CommunityViewSet(viewsets.ModelViewSet):
 @permission_classes([IsAuthenticated])
 def user_dashboard(request):
     user = request.user
-
-    # Partidos jugados este mes
     now = datetime.now()
-    partidos_jugados = Reservation.objects.filter(
+
+    # Reservas propias este mes
+    reservas_propias = Reservation.objects.filter(
         user=user,
         date__month=now.month,
         date__year=now.year
-    ).count()
+    ).values_list('id', flat=True)
 
-    # Invitaciones pendientes
+    # Reservas en las que el usuario ha aceptado invitación este mes
+    reservas_aceptadas = ReservationInvitation.objects.filter(
+        invitado=user,
+        estado='aceptada',
+        reserva__date__month=now.month,
+        reserva__date__year=now.year
+    ).values_list('reserva_id', flat=True)
+
+    # Unir ambos sets, evitar duplicados si hay coincidencia
+    partidos_jugados_ids = set(list(reservas_propias) + list(reservas_aceptadas))
+    partidos_jugados_mes = len(partidos_jugados_ids)
+
+    # Invitaciones pendientes (igual que antes)
     invitaciones_pendientes = ReservationInvitation.objects.filter(
         invitado=user, estado='pendiente'
     ).select_related('reserva__court', 'reserva__timeslot', 'reserva__user')
@@ -602,10 +636,36 @@ def user_dashboard(request):
 
     return Response({
         "nombre": user.nombre,
-        "partidos_jugados_mes": partidos_jugados,
+        "partidos_jugados_mes": partidos_jugados_mes,
         "invitaciones_pendientes": invitaciones_serializadas,
         "is_staff": user.is_staff,
     })
+
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def user_dashboard(request):
+#     user = request.user
+
+#     # Partidos jugados este mes
+#     now = datetime.now()
+#     partidos_jugados = Reservation.objects.filter(
+#         user=user,
+#         date__month=now.month,
+#         date__year=now.year
+#     ).count()
+
+#     # Invitaciones pendientes
+#     invitaciones_pendientes = ReservationInvitation.objects.filter(
+#         invitado=user, estado='pendiente'
+#     ).select_related('reserva__court', 'reserva__timeslot', 'reserva__user')
+#     invitaciones_serializadas = ReservationInvitationSerializer(invitaciones_pendientes, many=True).data
+
+#     return Response({
+#         "nombre": user.nombre,
+#         "partidos_jugados_mes": partidos_jugados,
+#         "invitaciones_pendientes": invitaciones_serializadas,
+#         "is_staff": user.is_staff,
+#     })
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
