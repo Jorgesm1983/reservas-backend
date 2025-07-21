@@ -166,14 +166,15 @@ class ReservationInvitation(models.Model):
     
     reserva = models.ForeignKey(Reservation, on_delete=models.CASCADE, related_name='invitaciones')
     invitado = models.ForeignKey(Usuario, null=True, blank=True, on_delete=models.SET_NULL)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     token = models.CharField(max_length=100, unique=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
     fecha_invitacion = models.DateTimeField(auto_now_add=True)
     nombre_invitado = models.CharField("Nombre del invitado", max_length=255, blank=True, null=True)
 
     class Meta:
-        unique_together = [['reserva', 'email']]
+        unique_together = (('reserva', 'email', 'nombre_invitado'),)
+        # unique_together = [['reserva', 'email']]
         verbose_name_plural = "Invitaciones"
         ordering = ['-fecha_invitacion', '-id']  # <-- añade esto
 
@@ -189,12 +190,12 @@ class ReservationInvitation(models.Model):
         
 class InvitadoExterno(models.Model):
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='invitados_externos')
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     nombre = models.CharField(max_length=255)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('usuario', 'email')
+        unique_together = ('usuario', 'email', 'nombre')
         
 
 

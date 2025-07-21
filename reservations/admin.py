@@ -8,6 +8,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponseServerError
 from .models import Community
 from calendar import monthrange
+from django import forms
 
 # Configuración para el modelo Usuario
 @admin.register(Usuario)
@@ -75,16 +76,44 @@ class ViviendaAdmin(admin.ModelAdmin):
     list_filter = ('community',)
     search_fields = ('nombre',)
 
-
+class ReservationInvitationForm(forms.ModelForm):
+    class Meta:
+        model = ReservationInvitation
+        fields = '__all__'
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get('email')
+        nombre = (cleaned_data.get('nombre_invitado') or '').strip()
+        # Conversion segura a string para .strip()
+        email = (email or '').strip()
+        if not email and not nombre:
+            raise forms.ValidationError(
+                "Debe indicar al menos el email o el nombre del invitado."
+            )
+        return cleaned_data
+    
 @admin.register(ReservationInvitation)
 class ReservationInvitationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'reserva', 'invitado', 'email','nombre_invitado', 'estado', 'fecha_invitacion')
+    form = ReservationInvitationForm
+    list_display = ('id', 'reserva', 'invitado', 'email', 'nombre_invitado', 'estado', 'fecha_invitacion')
     search_fields = ('email', 'invitado__nombre', 'reserva__user__nombre', 'nombre_invitado')
     list_filter = ('estado', 'fecha_invitacion')
     fields = (
         'reserva', 'invitado', 'email', 'nombre_invitado', 'estado', 'fecha_invitacion', 'token'
     )
     readonly_fields = ('fecha_invitacion', 'token')
+
+
+# @admin.register(ReservationInvitation)
+# class ReservationInvitationAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'reserva', 'invitado', 'email','nombre_invitado', 'estado', 'fecha_invitacion')
+#     search_fields = ('email', 'invitado__nombre', 'reserva__user__nombre', 'nombre_invitado')
+#     list_filter = ('estado', 'fecha_invitacion')
+#     fields = (
+#         'reserva', 'invitado', 'email', 'nombre_invitado', 'estado', 'fecha_invitacion', 'token'
+#     )
+#     readonly_fields = ('fecha_invitacion', 'token')
 
 @admin.register(Community)
 class CommunityAdmin(admin.ModelAdmin):

@@ -128,14 +128,53 @@ class SimpleReservationSerializer(serializers.ModelSerializer):
 class ReservationInvitationSerializer(serializers.ModelSerializer):
     nombre_mostrar = serializers.SerializerMethodField()
     reserva = SimpleReservationSerializer(read_only=True)
+    
+    # NUEVOS para WhatsApp/email:
+    convocante = serializers.SerializerMethodField()
+    pista = serializers.SerializerMethodField()
+    direccion_pista = serializers.SerializerMethodField()
+    fecha = serializers.SerializerMethodField()
+    hora_inicio = serializers.SerializerMethodField()
+    hora_fin = serializers.SerializerMethodField()
+    enlace_aceptar = serializers.SerializerMethodField()
+    enlace_rechazar = serializers.SerializerMethodField()
 
     class Meta:
         model = ReservationInvitation
         fields = [
             'id', 'reserva', 'invitado', 'email', 'estado', 'token',
-            'fecha_invitacion', 'nombre_invitado', 'nombre_mostrar'
+            'fecha_invitacion', 'nombre_invitado', 'nombre_mostrar',
+            'convocante', 'pista', 'direccion_pista', 'fecha',
+            'hora_inicio', 'hora_fin', 'enlace_aceptar', 'enlace_rechazar'
         ]
 
+    def get_convocante(self, obj):
+        return obj.reserva.user.get_full_name() if obj.reserva and obj.reserva.user else None
+
+    def get_pista(self, obj):
+        return obj.reserva.court.name if obj.reserva and obj.reserva.court else None
+
+    def get_direccion_pista(self, obj):
+        if obj.reserva and obj.reserva.court and obj.reserva.court.community:
+            return obj.reserva.court.community.direccion or "Consultar en recepción"
+        return "Consultar en recepción"
+
+    def get_fecha(self, obj):
+        return obj.reserva.date.strftime("%d/%m/%Y") if obj.reserva and obj.reserva.date else None
+
+    def get_hora_inicio(self, obj):
+        return obj.reserva.timeslot.start_time.strftime("%H:%M") if obj.reserva and obj.reserva.timeslot else None
+
+    def get_hora_fin(self, obj):
+        return obj.reserva.timeslot.end_time.strftime("%H:%M") if obj.reserva and obj.reserva.timeslot else None
+
+    def get_enlace_aceptar(self, obj):
+        return f"https://www.pistareserva.com/invitaciones/{obj.token}/aceptar/" if obj.token else None
+
+    def get_enlace_rechazar(self, obj):
+        return f"https://www.pistaresera.com/invitaciones/{obj.token}/rechazar/" if obj.token else None
+    
+    
     def get_nombre_mostrar(self, obj):
         if obj.invitado:
             return getattr(obj.invitado, 'get_full_name', lambda: None)() or getattr(obj.invitado, 'nombre', None) or obj.invitado.email

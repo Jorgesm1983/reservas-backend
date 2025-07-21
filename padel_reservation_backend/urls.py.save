@@ -48,7 +48,7 @@ urlpatterns = [
     path('api/obtener_viviendas', obtener_viviendas),
     # path('confirmar-invitacion/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
     path('api/invitaciones/<str:token>/', confirmar_invitacion, name='confirmar-invitacion'),
-    path('api/invitados-externos/<int:id>/', eliminar_invitado_externo, name='eliminar_invitado_externo'),
+    path('api/invitados-externos/<int:id>/', eliminar_invitado_externo,),
 
     path('api/dashboard/', user_dashboard, name='user-dashboard'), 
     path('api/confirmar_invitacion/<str:token>/', confirmar_invitacion, name='confirmar_invitacion'),  

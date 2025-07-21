@@ -28,13 +28,21 @@ import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime, date
 from django.utils import timezone
-
+import pyshorteners
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 import logging
 # import logging
 # logger = logging.getLogger(__name__)
 
+class AcortarUrlView(APIView):
+    def post(self, request):
+        url_larga = request.data.get('url')
+        if not url_larga:
+            return Response({'error': 'Falta la URL'}, status=400)
+        s = pyshorteners.Shortener()
+        url_corta = s.tinyurl.short(url_larga)
+        return Response({'url_corta': url_corta})
 
 # --- Registro de usuario desde el frontend ---
 @csrf_exempt
@@ -240,86 +248,179 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 {"error": "Máximo 3 invitaciones por reserva"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-                    
+            
         for data in invitaciones_data:
-            # print("\n=== Procesando invitación ===")
-            # print("Datos recibidos:", data)
             try:
-                email = data.get('email')
-                # print("Email recibido:", email)
-                if not email:
-                    # print("No se encontró email, se omite esta invitación.")
+                email = (data.get('email') or '').strip()
+                nombre = (data.get('nombre') or data.get('nombre_invitado') or '').strip()
+
+                # Permitir crear invitación si existe nombre o email (no ambos vacíos)
+                if not email and not nombre:
                     continue
 
-                invitado_usuario = Usuario.objects.filter(email=email).first()
-                # print("Usuario encontrado:", invitado_usuario)
+                invitado_usuario = Usuario.objects.filter(email=email).first() if email else None
 
-                invitacion_anterior = ReservationInvitation.objects.filter(reserva=reserva, email=email).first()
-                # print("Invitación anterior:", invitacion_anterior)
-
-                nombre = data.get('nombre', "")
-                nombre_invitado = data.get('nombre_invitado', "")
-                # print("Nombre recibido (nombre):", nombre)
-                # print("Nombre recibido (nombre_invitado):", nombre_invitado)
-
-                nombre_final = (
-                    (nombre or nombre_invitado).strip()
-                    if (nombre or nombre_invitado) and (nombre or nombre_invitado).strip()
-                    else (
-                        invitacion_anterior.nombre_invitado
-                        if invitacion_anterior and invitacion_anterior.nombre_invitado
-                        else email.split('@')[0]
-                    )
-                )
-                # print("Nombre final usado:", nombre_final)
-
-                # Actualiza o crea InvitadoExterno SIEMPRE con el nombre recibido si no es vacío
-                invitado_ext, created_ext = InvitadoExterno.objects.update_or_create(
-                    usuario=request.user,
-                    email=email,
-                    defaults={'nombre': nombre_final}
-                )
-                # print("InvitadoExterno creado/actualizado:", invitado_ext, "Creado:", created_ext)
-
-                # Si ya existe y el nombre recibido es no vacío y distinto, actualiza
-                if (nombre_final and invitado_ext.nombre != nombre_final) or not invitado_ext.nombre:
-                    invitado_ext.nombre = nombre_final or email.split('@')[0]
-                    invitado_ext.save(update_fields=['nombre'])
-                    # print("Nombre de InvitadoExterno actualizado a:", invitado_ext.nombre)
-
-                # Actualiza o crea ReservationInvitation SIEMPRE con el nombre recibido si no es vacío
-                invitacion, created = ReservationInvitation.objects.get_or_create(
+                # Buscar invitación anterior SOLO si hay email
+                invitacion_anterior = ReservationInvitation.objects.filter(
                     reserva=reserva,
-                    email=email,
-                    defaults={
-                        'invitado': invitado_usuario,
-                        'nombre_invitado': nombre_final
-                    }
-                )
-                # print("ReservationInvitation creado/actualizado:", invitacion, "Creado:", created)
+                    email=email
+                ).first() if email else None
 
-                if (nombre_final and invitacion.nombre_invitado != nombre_final) or not invitacion.nombre_invitado:
-                    invitacion.nombre_invitado = nombre_final or email.split('@')[0]
+                if email:
+                    nombre_final = (
+                        nombre if nombre else
+                        (invitacion_anterior.nombre_invitado if invitacion_anterior and invitacion_anterior.nombre_invitado else email.split('@')[0])
+                    )
+                else:
+                    nombre_final = nombre
+
+                # ---- Invitar como usuario frecuente externo ----
+                if email:
+                    invitado_ext, _ = InvitadoExterno.objects.update_or_create(
+                        usuario=request.user,
+                        email=email,
+                        defaults={'nombre': nombre_final or email.split('@')[0]}
+                    )
+                    if (nombre_final and invitado_ext.nombre != nombre_final) or not invitado_ext.nombre:
+                        invitado_ext.nombre = nombre_final or email.split('@')[0]
+                        invitado_ext.save(update_fields=['nombre'])
+                else:
+                    # Solo crea un habitual externo sin email si no existe uno igual
+                    existe_externo = InvitadoExterno.objects.filter(
+                        usuario=request.user,
+                        email='',
+                        nombre__iexact=nombre_final.strip()
+                    ).exists()
+                    if not existe_externo:
+                        InvitadoExterno.objects.create(
+                            usuario=request.user,
+                            email='',
+                            nombre=nombre_final
+                        )
+                    # Si ya existe, simplemente continúa; NUNCA devuelvas error aquí
+
+                # ---- Procesado de reservation invitation ----
+                if email:
+                    invitacion, created = ReservationInvitation.objects.get_or_create(
+                        reserva=reserva,
+                        email=email,
+                        defaults={'invitado': invitado_usuario, 'nombre_invitado': nombre_final}
+                    )
+                else:
+                    invitacion, created = ReservationInvitation.objects.get_or_create(
+                        reserva=reserva,
+                        email='',
+                        nombre_invitado=nombre_final,
+                        defaults={'invitado': None}
+                    )
+
+                if (
+                    nombre_final and invitacion.nombre_invitado != nombre_final
+                ) or not invitacion.nombre_invitado:
+                    invitacion.nombre_invitado = nombre_final or (email.split('@')[0] if email else '')
                     invitacion.save(update_fields=['nombre_invitado'])
-                    # print("Nombre de ReservationInvitation actualizado a:", invitacion.nombre_invitado)
 
-                if created:
-                    # print("Enviando email de invitación...")
+                if created and email:
                     self._enviar_email_invitacion(invitacion)
-            except IntegrityError as e:
-                # print("IntegrityError:", e)
+
+            except IntegrityError:
                 pass
             except Exception as e:
-                # print("Excepción inesperada:", e)
                 return Response(
                     {"error": "Error al procesar invitaciones", "detalle": str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
+
+
         return Response(
-            {"status": "Invitaciones procesadas", "invitaciones_creadas": len(invitaciones_data)},
+            {"status": "Invitaciones procesadas", "invitaciones_creadas": len([
+                d for d in invitaciones_data if (d.get('email') or '').strip() or (d.get('nombre') or d.get('nombre_invitado') or '').strip()
+            ])},
             status=status.HTTP_201_CREATED
         )
+    
+                    
+        # for data in invitaciones_data:
+        #     # print("\n=== Procesando invitación ===")
+        #     # print("Datos recibidos:", data)
+        #     try:
+        #         email = data.get('email')
+        #         nombre = (data.get('nombre') or data.get('nombre_invitado') or '').strip()
+        #         # print("Email recibido:", email)
+        #         if not email and not nombre:
+        #             # print("No se encontró email, se omite esta invitación.")
+        #             continue
+
+        #         invitado_usuario = Usuario.objects.filter(email=email).first()
+        #         # print("Usuario encontrado:", invitado_usuario)
+
+        #         invitacion_anterior = ReservationInvitation.objects.filter(reserva=reserva, email=email).first()
+        #         # print("Invitación anterior:", invitacion_anterior)
+
+        #         nombre = data.get('nombre', "")
+        #         nombre_invitado = data.get('nombre_invitado', "")
+        #         # print("Nombre recibido (nombre):", nombre)
+        #         # print("Nombre recibido (nombre_invitado):", nombre_invitado)
+
+        #         nombre_final = (
+        #             (nombre or nombre_invitado).strip()
+        #             if (nombre or nombre_invitado) and (nombre or nombre_invitado).strip()
+        #             else (
+        #                 invitacion_anterior.nombre_invitado
+        #                 if invitacion_anterior and invitacion_anterior.nombre_invitado
+        #                 else email.split('@')[0]
+        #             )
+        #         )
+        #         # print("Nombre final usado:", nombre_final)
+
+        #         # Actualiza o crea InvitadoExterno SIEMPRE con el nombre recibido si no es vacío
+        #         invitado_ext, created_ext = InvitadoExterno.objects.update_or_create(
+        #             usuario=request.user,
+        #             email=email,
+        #             defaults={'nombre': nombre_final}
+        #         )
+        #         # print("InvitadoExterno creado/actualizado:", invitado_ext, "Creado:", created_ext)
+
+        #         # Si ya existe y el nombre recibido es no vacío y distinto, actualiza
+        #         if (nombre_final and invitado_ext.nombre != nombre_final) or not invitado_ext.nombre:
+        #             invitado_ext.nombre = nombre_final or email.split('@')[0]
+        #             invitado_ext.save(update_fields=['nombre'])
+        #             # print("Nombre de InvitadoExterno actualizado a:", invitado_ext.nombre)
+
+        #         # Actualiza o crea ReservationInvitation SIEMPRE con el nombre recibido si no es vacío
+        #         invitacion, created = ReservationInvitation.objects.get_or_create(
+        #             reserva=reserva,
+        #             email=email,
+        #             defaults={
+        #                 'invitado': invitado_usuario,
+        #                 'nombre_invitado': nombre_final
+        #             }
+        #         )
+        #         # print("ReservationInvitation creado/actualizado:", invitacion, "Creado:", created)
+
+        #         if (nombre_final and invitacion.nombre_invitado != nombre_final) or not invitacion.nombre_invitado:
+        #             invitacion.nombre_invitado = nombre_final or email.split('@')[0]
+        #             invitacion.save(update_fields=['nombre_invitado'])
+        #             # print("Nombre de ReservationInvitation actualizado a:", invitacion.nombre_invitado)
+
+        #         if created:
+        #             # print("Enviando email de invitación...")
+        #             self._enviar_email_invitacion(invitacion)
+        #     except IntegrityError as e:
+        #         # print("IntegrityError:", e)
+        #         pass
+        #     except Exception as e:
+        #         # print("Excepción inesperada:", e)
+        #         return Response(
+        #             {"error": "Error al procesar invitaciones", "detalle": str(e)},
+        #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        #         )
+
+        # return Response(
+        #     {"status": "Invitaciones procesadas", "invitaciones_creadas": len(invitaciones_data)},
+        #     status=status.HTTP_201_CREATED
+        # )
         # print("Invitación creada:", invitacion, "Creada:", created)
     def _enviar_email_invitacion(self, invitacion):
         invitacion.generar_token()
@@ -460,19 +561,33 @@ class InvitadosFrecuentesViewSet(viewsets.ViewSet):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
-def eliminar_invitado_externo(request, email):
+def eliminar_invitado_externo(request, id):
     try:
-        invitado = InvitadoExterno.objects.get(
-            usuario=request.user,
-            email=email
-        )
+        invitado = InvitadoExterno.objects.get(id=id)
+        # Permiso: solo el propietario o staff
+        if invitado.usuario != request.user and not request.user.is_staff:
+            return Response(
+                {"error": "No tienes permiso para eliminar este invitado externo"},
+                status=status.HTTP_403_FORBIDDEN
+            )
         invitado.delete()
-        return Response(
-            {"status": "Invitado externo eliminado correctamente"},
-            status=status.HTTP_200_OK
-        )
+        return Response({"status": "Invitado eliminado correctamente"}, status=status.HTTP_200_OK)
     except InvitadoExterno.DoesNotExist:
-        return Response({"error": "Invitado no encontrado"}, status=404)
+        return Response({"error": "Invitado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+# def eliminar_invitado_externo(request, email):
+#     try:
+#         invitado = InvitadoExterno.objects.get(
+#             usuario=request.user,
+#             email=email
+#         )
+#         invitado.delete()
+#         return Response(
+#             {"status": "Invitado externo eliminado correctamente"},
+#             status=status.HTTP_200_OK
+#         )
+#     except InvitadoExterno.DoesNotExist:
+#         return Response({"error": "Invitado no encontrado"}, status=404)
 
 
 # --- Listado de usuarios de la comunidad (para invitaciones) ---
@@ -714,7 +829,7 @@ class RechazarInvitacionView(APIView):
 class InvitadoExternoViewSet(viewsets.ModelViewSet):
     serializer_class = InvitadoExternoSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'email'
+    lookup_field = 'id'  # <-- Debe ser 'id', no 'email'
     lookup_value_regex = '[^/]+'  # Permite emails con puntos, ñ, etc.
     pagination_class = None
     
