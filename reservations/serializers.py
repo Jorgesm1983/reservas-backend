@@ -211,7 +211,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     codigo_comunidad = serializers.CharField(write_only=True, required=False)
-    accepted_terms = serializers.BooleanField(write_only=True)
+    accepted_terms = serializers.BooleanField(write_only=True, required=False, default=False)
     terms_accepted_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
