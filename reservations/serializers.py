@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Court, TimeSlot, Reservation, ReservationInvitation
-from .models import Usuario, Vivienda, Community, InvitadoExterno
+from .models import Usuario, Vivienda, Community, InvitadoExterno, Anuncio, RespuestaAnuncio
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from rest_framework import exceptions
@@ -359,3 +359,38 @@ class InvitadoExternoSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvitadoExterno
         fields = ['id', 'email', 'nombre','usuario_id', 'usuario_nombre', 'usuario_email']
+
+class RespuestaAnuncioSerializer(serializers.ModelSerializer):
+    autor_nombre = serializers.CharField(source='autor.nombre', read_only=True)
+    anuncio = serializers.PrimaryKeyRelatedField(queryset=Anuncio.objects.all())
+    class Meta:
+        model = RespuestaAnuncio
+        fields = ['id', 'anuncio', 'contenido', 'autor', 'autor_nombre', 'creado']
+        read_only_fields = ['autor', 'autor_nombre']
+
+class AnuncioSerializer(serializers.ModelSerializer):
+    autor_nombre = serializers.CharField(source='autor.nombre', read_only=True)
+    respuestas = RespuestaAnuncioSerializer(many=True, read_only=True)
+    imagen = serializers.ImageField(required=False)
+
+    titulo = serializers.CharField(required=True, allow_blank=False)
+    contenido = serializers.CharField(required=True, allow_blank=False)
+
+    class Meta:
+        model = Anuncio
+        fields = [
+            'id', 'titulo', 'contenido', 'imagen', 'autor_nombre',
+            'autor', 'respuestas', 'creado', 'editado'
+        ]
+        read_only_fields = ['autor', 'autor_nombre', 'respuestas', 'creado', 'editado']
+
+    def validate_titulo(self, value):
+        if not value or value.strip() in ("", "undefined"):
+            raise serializers.ValidationError("El título es obligatorio.")
+        return value
+
+    def validate_contenido(self, value):
+        if not value or value.strip() in ("", "undefined"):
+            raise serializers.ValidationError("El contenido es obligatorio.")
+        return value
+

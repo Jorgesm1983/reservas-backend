@@ -9,6 +9,7 @@ from django.http import HttpResponseServerError
 from .models import Community
 from calendar import monthrange
 from django import forms
+from .models import Anuncio, RespuestaAnuncio
 
 # Configuración para el modelo Usuario
 @admin.register(Usuario)
@@ -220,3 +221,28 @@ def estadisticas_dashboard_view(request):
         import traceback
         error_message = f"<h2>Error en Dashboard Estadístico</h2><pre>{traceback.format_exc()}</pre>"
         return HttpResponseServerError(error_message)
+    
+class RespuestaInline(admin.TabularInline):
+    model = RespuestaAnuncio
+    extra = 0
+    readonly_fields = ('autor', 'contenido', 'creado')
+    can_delete = True
+    show_change_link = True
+
+@admin.register(Anuncio)
+class AnuncioAdmin(admin.ModelAdmin):
+    list_display = ('id', 'titulo', 'autor', 'creado')
+    list_filter = ('autor', 'creado')
+    search_fields = ('titulo', 'contenido', 'autor__username', 'autor__first_name', 'autor__last_name')
+    # date_hierarchy = 'creado'
+    inlines = [RespuestaInline]
+    readonly_fields = ('creado',)
+    ordering = ('-creado',)
+
+@admin.register(RespuestaAnuncio)
+class RespuestaAnuncioAdmin(admin.ModelAdmin):
+    list_display = ('id', 'anuncio', 'autor', 'creado')
+    list_filter = ('autor', 'creado')
+    search_fields = ('contenido', 'anuncio__titulo', 'autor__username', 'autor__first_name', 'autor__last_name')
+    readonly_fields = ('creado',)
+    ordering = ('-creado',)

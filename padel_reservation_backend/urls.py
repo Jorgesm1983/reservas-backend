@@ -1,13 +1,15 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from django.contrib import admin
+from django.conf import settings
+from django.conf.urls.static import static
 
 from reservations.views import (
     CourtViewSet, TimeSlotViewSet,
     ReservationViewSet, UserViewSet,
     CustomLoginView, registro_usuario, obtener_viviendas, confirmar_invitacion, UsuarioComunidadViewSet,
     UsuarioViewSet, ReservationInvitationViewSet, confirmar_invitacion, ViviendaViewSet, InvitadosFrecuentesViewSet, eliminar_invitado_externo, ReservationAllViewSet, 
-    CommunityViewSet, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet, get_ocupados, viviendas_por_codigo)
+    CommunityViewSet, user_dashboard, proximos_partidos_invitado, AceptarInvitacionView, RechazarInvitacionView, InvitadoExternoViewSet, get_ocupados, viviendas_por_codigo, AnuncioViewSet, RespuestaAnuncioViewSet)
 from rest_framework_simplejwt.views import TokenRefreshView
 from reservations.serializers import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -36,6 +38,8 @@ router.register(r'viviendas', ViviendaViewSet, basename = 'vivienda')
 router.register(r'invitaciones-frecuentes', InvitadosFrecuentesViewSet, basename='invitaciones-frecuentes')
 router.register(r'comunidades', CommunityViewSet, basename='comunidades')
 router.register(r'invitados-externos', InvitadoExternoViewSet, basename='invitadoexterno')
+router.register(r'anuncios', AnuncioViewSet)
+router.register(r'respuestas', RespuestaAnuncioViewSet)
 
 urlpatterns = [
     path('django-admin/estadisticas/', estadisticas_dashboard_view, name='estadisticas-dashboard'),
@@ -58,5 +62,5 @@ urlpatterns = [
     path('api/horarios-ocupados/', get_ocupados, name='horarios-ocupados'),
     path('api/viviendas_por_codigo/', viviendas_por_codigo, name='viviendas_por_codigo'),
     path('api/password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

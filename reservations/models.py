@@ -4,7 +4,6 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 import secrets
 
-
 class Community(models.Model):
     id = models.BigAutoField(primary_key=True)  # <--- Asegura que es bigint(20)
     name = models.CharField("Nombre de la comunidad", max_length=100)
@@ -213,3 +212,22 @@ class ReservationCancelada(models.Model):
     
     class Meta:
         verbose_name_plural = "Reservas Canceladas"
+
+class Anuncio(models.Model):
+    autor = models.ForeignKey('Usuario', on_delete=models.CASCADE, related_name='anuncios')
+    titulo = models.CharField(max_length=120)
+    contenido = models.TextField()
+    imagen = models.ImageField(upload_to='anuncios/', null=True, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    editado = models.DateTimeField(auto_now=True)
+    class Meta:
+        ordering = ['-creado']
+
+class RespuestaAnuncio(models.Model):
+    anuncio = models.ForeignKey(Anuncio, on_delete=models.CASCADE, related_name='respuestas')
+    autor = models.ForeignKey('Usuario', on_delete=models.CASCADE, related_name='respuestas_anuncio')
+    contenido = models.TextField()
+    creado = models.DateTimeField(auto_now_add=True)
+    editado = models.DateTimeField(auto_now=True)
+    class Meta:
+        ordering = ['creado']

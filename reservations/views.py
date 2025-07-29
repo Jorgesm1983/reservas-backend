@@ -3,12 +3,12 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from django.db.models import OuterRef, Exists
 from .models import (
-    Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation, InvitadoExterno, Community, ReservationCancelada
+    Court, TimeSlot, Reservation, Usuario, Vivienda, ReservationInvitation, InvitadoExterno, Community, ReservationCancelada, Anuncio, RespuestaAnuncio
 )
 from .serializers import (
     CourtSerializer, TimeSlotSerializer, ReservationSerializer, UserSerializer,
     UsuarioSerializer, ReservationInvitationSerializer, WriteReservationSerializer,
-    ViviendaSerializer, CustomTokenObtainPairSerializer, CommunitySerializer, ChangePasswordSerializer, InvitadoExternoSerializer
+    ViviendaSerializer, CustomTokenObtainPairSerializer, CommunitySerializer, ChangePasswordSerializer, InvitadoExternoSerializer, AnuncioSerializer, RespuestaAnuncioSerializer
 )
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
@@ -28,9 +28,13 @@ import json
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime, date
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from datetime import timedelta
+from rest_framework.pagination import PageNumberPagination
 import pyshorteners
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from rest_framework.parsers import MultiPartParser, FormParser
 import logging
 # import logging
 # logger = logging.getLogger(__name__)
@@ -886,3 +890,50 @@ def viviendas_por_codigo(request):
         'viviendas': data,
         'comunidad_nombre': comunidad.name  # <-- Añade esto
     })
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return request.method in permissions.SAFE_METHODS or obj.autor == request.user
+    
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+
+
+class AnuncioViewSet(viewsets.ModelViewSet):
+    parser_classes = (MultiPartParser, FormParser)
+    queryset = Anuncio.objects.all()
+    serializer_class = AnuncioSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user)
+        
+    def get_queryset(self):
+        queryset = Anuncio.objects.all()
+        fecha_desde = self.request.GET.get('fecha_desde')
+        fecha_hasta = self.request.GET.get('fecha_hasta')
+        usuario = self.request.GET.get('usuario')
+        vivienda = self.request.GET.get('vivienda')
+
+        if fecha_desde:
+            fecha_desde_dt = timezone.make_aware(datetime.strptime(fecha_desde, "%Y-%m-%d"))
+
+            queryset = queryset.filter(creado__gte=fecha_desde_dt)
+        if fecha_hasta:
+            fecha_hasta_dt = timezone.make_aware(datetime.strptime(fecha_hasta, "%Y-%m-%d")) + timedelta(days=1)
+
+            queryset = queryset.filter(creado__lt=fecha_hasta_dt)
+        if usuario:
+            queryset = queryset.filter(autor_id=usuario)
+        if vivienda:
+            queryset = queryset.filter(autor__vivienda_id=vivienda)
+        return queryset
+
+
+class RespuestaAnuncioViewSet(viewsets.ModelViewSet):
+    queryset = RespuestaAnuncio.objects.all()
+    serializer_class = RespuestaAnuncioSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user)
